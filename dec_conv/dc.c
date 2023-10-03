@@ -321,12 +321,10 @@ void merge_parts(const char *head, const char *tail, char *dest, int size) {
         }
         *dest = *head;
     }
-    //dest++;
     *dest++ = '.';
     for(; *tail; tail++, dest++) {
         *dest = *tail;
     }
-    //dest++;
     *dest = '\n';
 }
 

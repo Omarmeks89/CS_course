@@ -16,6 +16,8 @@
 #define SYS_UNS_OVF "18446744073709551615"
 #define SYS_SIGN_OVF "9223372036854775808"
 #define PRECISION 10
+#define PREC_NUMS_CNT 2
+#define MAX_PREC 32
 
 #define OVF_SIZEOF(s) (s == 1 ? sizeof(SYS_UNS_OVF) : sizeof(SYS_SIGN_OVF))
 /* max str size for binary repr */
@@ -64,7 +66,22 @@ enum dc_errors {
     E_INV_SYS   = -3,
     E_UNSUPP    = -4,
     E_STDOUT    = -5,
+    /* we got NULL as ptr in func */
     E_NULLPT    = -6,
+    E_INVFLG    = -7,
+    /* prec digs count > 2 */
+    E_PRECOVF   = -8,
+    /* unknown preset */
+    E_UNKPRES   = -9,
+    E_NOMTHP    = -10,
+};
+
+static const char *presets[] = {
+    "prec",
+};
+
+enum preset_op {
+    SET_PREC,
 };
 
 enum sign {
@@ -77,6 +94,11 @@ enum ntype_t {
     DOUBLE,
 };
 
+enum repr_mode {
+    CUPPER = 0,
+    CLOWER,
+};
+
 struct report_t {
     int ntype;
     /* position of separation symbol */
@@ -87,6 +109,17 @@ struct report_t {
      * int-numbers will have 0 prec.
      */
     int size;
+};
+
+struct command_t {
+    /* b[B] | o[O] | h[H] */
+    char sys;
+    /* l[L] lowercase, uppercase by default */
+    char repr_m;
+    /* precision for float numbers */
+    int prec;
+    int err;
+    int num_pos;
 };
 
 int check_sign(char *num) {
@@ -197,25 +230,120 @@ int del_report(struct report_t *r) {
     return E_NOERR;
 }
 
-int convert_mode(char *mode, char *c) {
-    char *f = ++mode, to_lover;
-    char diff = 'a' - 'A';
-    switch(*f) {
-        case 'B':
-        case 'H':
-        case 'O':
-            to_lover = (char)(*f + diff);
-            *c = to_lover;
+int parse_float_precision(const char *arg, struct command_t *cmd, int mth_pos) {
+    int p_prec = PRECISION;
+    char pvalue[] = {'\0', '\0', '\0'};
+    for(int i = 0; arg[mth_pos + i]; i++) {
+        if ((arg[mth_pos + i] < '0') || (arg[mth_pos + i] > '9')) {
+            return E_UNSUPP;
+        }
+        pvalue[i] = arg[mth_pos + i];
+        if (i == PREC_NUMS_CNT)
             break;
-        case 'b':
-        case 'h':
-        case 'o':
-            *c = *f;
-            break;
-        default:
-            *c = *f;
-            return E_INV_SYS;
     }
+    p_prec = atoi(pvalue);
+    if (p_prec > MAX_PREC) {
+        p_prec = MAX_PREC;
+    }
+    cmd->prec = p_prec;
+    return E_NOERR;
+}
+
+int match_p(const char *arg, const char *templ) {
+    const char *tmp = arg;
+    for(; *templ; templ++, arg++) {
+        if (*templ != *arg) {
+            return 0;
+        }
+    }
+    return arg - tmp;
+}
+
+int parse_preset(const char *arg, struct command_t *cmd, const char *preset[]) {
+    int match = 0, err = E_NOERR;
+    for(int i = 0; preset[i]; i++) {
+        match = match_p(arg, preset[i]);
+        if (!match) {
+            continue;
+        }
+        switch(i) {
+            case SET_PREC:
+                err = parse_float_precision(arg, cmd, match + 1);
+                break;
+        }
+    }
+    if (!match) {
+        err = E_NOMTHP;
+    }
+    return err;
+}
+
+int convert_mode(const char *mode, struct command_t *cmd, const char *presets[]) {
+    const char *f = ++mode;
+    char to_lover;
+    char diff = 'a' - 'A';
+    for(; *f; f++ ) {
+        switch(*f) {
+            case 'B':
+            case 'H':
+            case 'O':
+                to_lover = (char)(*f + diff);
+                cmd->sys = to_lover;
+                break;
+            case 'L':
+                cmd->repr_m = CLOWER;
+                break;
+            case 'b':
+            case 'h':
+            case 'o':
+                cmd->sys = *f;
+                break;
+            case 'l':
+                cmd->repr_m = CLOWER;
+                break;
+            case '-':
+                return parse_preset(++f, cmd, presets);
+            default:
+                cmd->sys = *f;
+                return E_INV_SYS;
+        }
+    }
+    return E_NOERR;
+}
+
+struct command_t *parse_command(int argc, char *argv[], const char *presets[]) {
+    struct command_t *cmd;
+    char *arg;
+    cmd = malloc(sizeof(*cmd));
+    if (cmd == NULL) {
+        return NULL;
+    }
+    cmd->repr_m = CUPPER;
+    cmd->err = E_NOERR;
+    cmd->prec = PRECISION;
+    cmd->num_pos = argc - 1;
+    for(int i = 1; i < cmd->num_pos; i++) {
+        arg = argv[i];
+        switch(arg[0]) {
+            case '-':
+                cmd->err = convert_mode(arg, cmd, presets);
+                break;
+            default:
+                cmd->err = E_INVFLG;
+                break;
+        }
+        if (cmd->err != E_NOERR) {
+            break;
+        }
+    }
+    return cmd;
+}
+
+int del_command(struct command_t *cmd) {
+    if (cmd == NULL) {
+        return E_NULLPT;
+    }
+    free(cmd);
     return E_NOERR;
 }
 
@@ -225,8 +353,9 @@ char *create_string(int size) {
     return ptr;
 }
 
-char decode_symb(unsigned long dig) {
+char decode_symb(num_t dig, char repr_m) {
     char c;
+    char upp = (32 * repr_m);
     switch(dig) {
         case 0: { c = '0'; break; }
         case 1: { c = '1'; break; }
@@ -238,12 +367,12 @@ char decode_symb(unsigned long dig) {
         case 7: { c = '7'; break; }
         case 8: { c = '8'; break; }
         case 9: { c = '9'; break; }
-        case 10: { c = 'A'; break; }
-        case 11: { c = 'B'; break; }
-        case 12: { c = 'C'; break; }
-        case 13: { c = 'D'; break; }
-        case 14: { c = 'E'; break; }
-        case 15: { c = 'F'; break; }
+        case 10: { c = ('A' + upp); break; }
+        case 11: { c = ('B' + upp); break; }
+        case 12: { c = ('C' + upp); break; }
+        case 13: { c = ('D' + upp); break; }
+        case 14: { c = ('E' + upp); break; }
+        case 15: { c = ('F' + upp); break; }
     }
     return c;
 }
@@ -257,22 +386,22 @@ void set_num_prefix(num_t num, num_t base, char *dest, char *pref) {
     }
 }
 
-void convert(num_t num, num_t base, char *dest, int *l_pos) {
+void convert(num_t num, num_t base, char *dest, int *l_pos, char repr_m) {
     num_t symb_no;
     int i;
     for(i = 2; num >= base; i++) {
         symb_no = num % base;
-        dest[i] = decode_symb(symb_no);
+        dest[i] = decode_symb(symb_no, repr_m);
         num = (num_t)num / base;
     }
-    dest[i] = decode_symb(num);
+    dest[i] = decode_symb(num, repr_m);
     *l_pos = i;
 }
 
 void reverse(char *dest, int *l_pos) {
     int i, j;
     char c;
-    for(i = 2, j = *l_pos; i < j ; i++, j--) {
+    for(i = 2, j = *l_pos; i < j; i++, j--) {
         c = dest[j];
         dest[j] = dest[i];
         dest[i] = c;
@@ -297,32 +426,36 @@ void resize_double(char *fl_part, char *dest, int prec) {
     *fl_part = '0';
     for(; *fl_part; dest++, fl_part++) {
         prec--;
-        if (prec == 0) {
+        if (prec <= 0) {
             break;
         }
         *dest = *fl_part;
     }
 }
 
-void convert_float_part(double tail, char *dest, double base, int prec) {
+void convert_float_part(double tail, char *dest, double base, int prec, char repr_m) {
     int tmp_t;
-    for(int i = 0; i < prec; i++) {
+    for(int i = 0; i < MAX_PREC; i++) {
         tail = tail * base;
         tmp_t = (int)tail;
-        dest[i] = decode_symb(tmp_t);
+        dest[i] = decode_symb(tmp_t, repr_m);
         tail -= (double)tmp_t;
     }
+    dest[prec] = '\0';
 }
 
 void merge_parts(const char *head, const char *tail, char *dest, int size) {
-    for(; *head; head++, dest++) {
+    for(; *head; head++, dest++ ) {
         if (*head == '\n') {
-            continue;
+            break;
         }
         *dest = *head;
     }
-    *dest++ = '.';
-    for(; *tail; tail++, dest++) {
+    if (*tail) {
+        *dest = '.';
+    }
+    dest++;
+    for(; *tail; dest++, tail++ ) {
         *dest = *tail;
     }
     *dest = '\n';
@@ -332,8 +465,9 @@ int main(int argc, char **argv) {
     int sign, err, symbols, max_pos = 0;
     double f_part;
     num_t converted_num, base;
-    char *num, *result, *tail, *pref, *merged, sys;
+    char *num, *result, *tail, *pref, *merged;
     struct report_t *report;
+    struct command_t *cmd;
 
     if (argc == 1) {
         printf("[dc] Converter for decimal numbers to hex, oct, bin systems.\n"
@@ -353,31 +487,32 @@ int main(int argc, char **argv) {
         printf("Not enough args: %d. Need 2 -> [num, [sys]]\n", argc - 1);
         exit(1);
     }
-    sign = check_sign(argv[1]);
+    sign = check_sign(argv[argc - 1]);
     if (sign == E_INV_SIGN) {
-        printf("Sign %c not supported in %s.\n", argv[1][0], argv[1]);
+        printf("Sign %c not supported in %s.\n", argv[argc - 1][0], argv[argc - 1]);
         exit(1);
     }
-    err = convert_mode(argv[2], &sys);
-    if (err == E_INV_SYS) {
-        printf("Invalid flag: [%c]. Use: -b[B] (bin) | -h[H] (hex) | -o[O] (oct).\n", sys);
+    cmd = parse_command(argc, argv, presets);
+    if (cmd->err != E_NOERR) {
+        // printf("Invalid flag: [%c]. Use: -b[B] (bin) | -h[H] (hex) | -o[O] (oct).\n", cmd->sys);
+        printf("ERROR NO: [%d]\n", cmd->err);
         exit(1);
     }
-    num = skip_sign(argv[1]);
+    num = skip_sign(argv[cmd->num_pos]);
     report = check_num(num, get_ctrl_num(sign), OVF_SIZEOF(sign));
     err = report->err;
     if (err != E_NOERR) {
         if (err == E_OVF) {
-            printf("Overflow: [%s] | [%c%s]\n", argv[1], SIGN(sign), get_ctrl_num(sign));
+            printf("Overflow: [%s] | [%c%s]\n", argv[cmd->num_pos], SIGN(sign), get_ctrl_num(sign));
         } else if (err == E_UNSUPP) {
-            printf("Unsupported symbols in [%s]. Supported: [.0-9]\n", argv[1]);
+            printf("Unsupported symbols in [%s]. Supported: [.0-9]\n", argv[cmd->num_pos]);
         }
         exit(1);
     }
 
     converted_num = strtoul(num, NULL, DEC);
 
-    switch(sys) {
+    switch(cmd->sys) {
         case 'b':
             symbols = BIN_SYMBS_CNT();
             pref = (char*)"0b";
@@ -397,14 +532,17 @@ int main(int argc, char **argv) {
 
     if (report->ntype == INT) {
         symbols = ADD_PREF_AND_SUFF(symbols);
+    } else {
+        symbols = ADD_TAIL(symbols) + 1;
     }
     result = create_string(symbols);
 
     if (report->ntype == DOUBLE) {
-        tail = create_string(PRECISION);
-        resize_double(&num[report->sppos - 1], tail, PRECISION);
+        /* we alloc mem for max precision */
+        tail = create_string(ADD_TAIL(MAX_PREC));
+        resize_double(&num[report->sppos - 1], tail, MAX_PREC);
         f_part = atof(tail);
-        convert_float_part(f_part, tail, (double)base, PRECISION);
+        convert_float_part(f_part, tail, (double)base, cmd->prec, cmd->repr_m);
 
         if (err != E_NOERR) {
             printf("Can`t convert float part.\n");
@@ -413,11 +551,15 @@ int main(int argc, char **argv) {
     }
 
     set_num_prefix(converted_num, base, result, pref);
-    convert(converted_num, base, result, &max_pos);
+    convert(converted_num, base, result, &max_pos, cmd->repr_m);
     reverse(result, &max_pos);
 
     if (report->ntype == DOUBLE) {
-        max_pos = (symbols + 1) + ADD_TAIL(PRECISION);
+        /**
+         * We create new string here of
+         * size = size(head) + size(tail) + size(pref + '.', '\0', '\n')
+         */
+        max_pos = ADD_TAIL(symbols) + ADD_TAIL(cmd->prec);
         merged = create_string(max_pos);
         merge_parts(result, tail, merged, max_pos);
         print_result(merged, max_pos, &err);
@@ -429,6 +571,7 @@ int main(int argc, char **argv) {
 
     free(result);
     del_report(report);
+    del_command(cmd);
 
     if (err == E_STDOUT) {
         printf("Output error\n");

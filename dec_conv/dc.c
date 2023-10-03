@@ -17,6 +17,7 @@
 #define SYS_SIGN_OVF "9223372036854775808"
 #define PRECISION 10
 
+#define OVF_SIZEOF(s) (s == 1 ? sizeof(SYS_UNS_OVF) : sizeof(SYS_SIGN_OVF))
 /* max str size for binary repr */
 #define BIN_SYMBS_CNT() ((int)64)
 /* same for hex and oct */
@@ -116,6 +117,10 @@ char *get_ctrl_num(int sign) {
     return SYS_SIGN_OVF;
 }
 
+/**
+ * If sign [+] | [-] found, skip it - 
+ * return string without sign.
+ */
 char *skip_sign(char *num) {
     char *only_digs = num;
     if ((num[0] == '-') || (num[0] == '+')) {
@@ -142,13 +147,13 @@ int detect_num_type(char *num, struct report_t *report) {
             return E_UNSUPP;
         }
         if (num[i] == ssep) {
+
             /* size of non-float part x < i */
             report->sppos = i;
             report->ntype = DOUBLE;
         }
     }
     report->size = i;
-    // printf("%d | %d | %d\n", report->sppos, report->size, report->ntype);
     return E_NOERR;
 }
 
@@ -156,7 +161,7 @@ int detect_num_type(char *num, struct report_t *report) {
  * Top-level func to detect exact num type 
  * check overflow.
  */
-struct report_t *check_num(char *num, char *c_num) {
+struct report_t *check_num(char *num, char *c_num, int ovf_lim) {
     struct report_t *rep;
     int err = E_NOERR;
     rep = malloc(sizeof(*rep));
@@ -174,7 +179,7 @@ struct report_t *check_num(char *num, char *c_num) {
             if (!c_num[rep->size - 1]) 
                 err = E_OVF;
             else
-                err = check_overflow(num, c_num, rep->size, 19);
+                err = check_overflow(num, c_num, rep->size, ovf_lim);
         }
     }
     rep->err = err;
@@ -223,58 +228,29 @@ char *create_string(int size) {
 char decode_symb(unsigned long dig) {
     char c;
     switch(dig) {
-        case 0:
-            c = '0';
-            break;
-        case 1:
-            c = '1';
-            break;
-        case 2:
-            c = '2';
-            break;
-        case 3:
-            c = '3';
-            break;
-        case 4:
-            c = '4';
-            break;
-        case 5:
-            c = '5';
-            break;
-        case 6:
-            c = '6';
-            break;
-        case 7:
-            c = '7';
-            break;
-        case 8:
-            c = '8';
-            break;
-        case 9:
-            c = '9';
-            break;
-        case 10:
-            c = 'A';
-            break;
-        case 11:
-            c = 'B';
-            break;
-        case 12:
-            c = 'C';
-            break;
-        case 13:
-            c = 'D';
-            break;
-        case 14:
-            c = 'E';
-            break;
-        case 15:
-            c = 'F';
-            break;
+        case 0: { c = '0'; break; }
+        case 1: { c = '1'; break; }
+        case 2: { c = '2'; break; }
+        case 3: { c = '3'; break; }
+        case 4: { c = '4'; break; }
+        case 5: { c = '5'; break; }
+        case 6: { c = '6'; break; }
+        case 7: { c = '7'; break; }
+        case 8: { c = '8'; break; }
+        case 9: { c = '9'; break; }
+        case 10: { c = 'A'; break; }
+        case 11: { c = 'B'; break; }
+        case 12: { c = 'C'; break; }
+        case 13: { c = 'D'; break; }
+        case 14: { c = 'E'; break; }
+        case 15: { c = 'F'; break; }
     }
     return c;
 }
 
+/**
+ * Add prefix: Ob | 0x | 0o to template
+ */
 void set_num_prefix(num_t num, num_t base, char *dest, char *pref) {
     for(; *pref; ) {
         *dest++ = *pref++;
@@ -303,7 +279,7 @@ void reverse(char *dest, int *l_pos) {
     }
     dest[*l_pos + 1] = '\n';
     /**
-     * Add tail for '\0\n'
+     * Add tail for pair '\0\n'
      */
     *l_pos = ADD_TAIL(*l_pos);
 }
@@ -325,7 +301,6 @@ void resize_double(char *fl_part, char *dest, int prec) {
             break;
         }
         *dest = *fl_part;
-        //printf("%c | %c\n", *fl_part, *dest);
     }
 }
 
@@ -345,13 +320,11 @@ void merge_parts(const char *head, const char *tail, char *dest, int size) {
             continue;
         }
         *dest = *head;
-        // printf("%c\n", *dest);
     }
     dest++;
     *dest++ = '.';
     for(; *tail; tail++, dest++) {
         *dest = *tail;
-        // printf("%c\n", *dest);
     }
     dest++;
     *dest = '\n';
@@ -393,7 +366,7 @@ int main(int argc, char **argv) {
         exit(1);
     }
     num = skip_sign(argv[1]);
-    report = check_num(num, get_ctrl_num(sign));
+    report = check_num(num, get_ctrl_num(sign), OVF_SIZEOF(sign));
     err = report->err;
     if (err != E_NOERR) {
         if (err == E_OVF) {
@@ -430,7 +403,6 @@ int main(int argc, char **argv) {
     result = create_string(symbols);
 
     if (report->ntype == DOUBLE) {
-        /* ... */
         tail = create_string(PRECISION);
         resize_double(&num[report->sppos - 1], tail, PRECISION);
         f_part = atof(tail);

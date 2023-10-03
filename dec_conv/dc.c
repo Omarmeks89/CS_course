@@ -18,6 +18,7 @@
 #define PRECISION 10
 #define PREC_NUMS_CNT 2
 #define MAX_PREC 32
+#define NO_SYS ' '
 
 #define OVF_SIZEOF(s) (s == 1 ? sizeof(SYS_UNS_OVF) : sizeof(SYS_SIGN_OVF))
 /* max str size for binary repr */
@@ -321,6 +322,7 @@ struct command_t *parse_command(int argc, char *argv[], const char *presets[]) {
     cmd->repr_m = CUPPER;
     cmd->err = E_NOERR;
     cmd->prec = PRECISION;
+    cmd->sys = NO_SYS;
     cmd->num_pos = argc - 1;
     for(int i = 1; i < cmd->num_pos; i++) {
         arg = argv[i];
@@ -336,6 +338,12 @@ struct command_t *parse_command(int argc, char *argv[], const char *presets[]) {
             break;
         }
     }
+    /**
+     * check if one of supported
+     * systems not set.
+     */
+    if (cmd->sys == NO_SYS)
+        cmd->err = E_INV_SYS;
     return cmd;
 }
 

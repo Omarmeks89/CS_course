@@ -55,7 +55,7 @@ Signs:
 	 [-] for negative nums.
 ```
 
-For representation hex numbers you can use option -l[L] to
+For representation hex numbers you can use option `-l[L]` to
 convert literal hex numbers to lower case (is upper case by default).
 So use command `dcc -hl 10241024`:
 ```bash

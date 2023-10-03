@@ -321,12 +321,12 @@ void merge_parts(const char *head, const char *tail, char *dest, int size) {
         }
         *dest = *head;
     }
-    dest++;
+    //dest++;
     *dest++ = '.';
     for(; *tail; tail++, dest++) {
         *dest = *tail;
     }
-    dest++;
+    //dest++;
     *dest = '\n';
 }
 
@@ -427,9 +427,9 @@ int main(int argc, char **argv) {
         free(tail);
     } else {
         print_result(result, max_pos, &err);
-        free(result);
     }
 
+    free(result);
     del_report(report);
 
     if (err == E_STDOUT) {

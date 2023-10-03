@@ -1,5 +1,6 @@
 ## DCC Converter from decimal
 
+![C](https://img.shields.io/badge/c-%2300599C.svg?style=for-the-badge&logo=c&logoColor=white)
 Small app, that convert numbers from decimal system
 to bin, oct and hex system.
 

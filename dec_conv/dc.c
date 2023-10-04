@@ -7,12 +7,10 @@
 #define ssep '.'
 #endif
 
-/**
- * We should define max output size (in symbols)
+ /* We should define max output size (in symbols)
  * and define overflow value:
  *     max positive: 2^64-1 18 446 744 073 709 551 615
- *     max negative: 2^63 9 223 372 036 854 775 808
- */
+ *     max negative: 2^63 9 223 372 036 854 775 808 */
 #define SYS_UNS_OVF "18446744073709551615"
 #define SYS_SIGN_OVF "9223372036854775808"
 #define PRECISION 10
@@ -20,14 +18,19 @@
 #define MAX_PREC 32
 #define NO_SYS ' '
 
-#define OVF_SIZEOF(s) (s == 1 ? sizeof(SYS_UNS_OVF) : sizeof(SYS_SIGN_OVF))
+/* we make decrement bcs of '\0' at the end */
+#define OVF_SIZEOF(s) (s == 1 ? sizeof(SYS_UNS_OVF) - 1 : sizeof(SYS_SIGN_OVF) - 1)
+
 /* max str size for binary repr */
 #define BIN_SYMBS_CNT() ((int)64)
+
 /* same for hex and oct */
 #define HEX_SYMBS_CNT() ((int)64 / 4)
 #define OCT_SYMBS_CNT() ((int)(64 / 3) + 1)
+
 /* prefix: 0b | 0x | 0o */
 #define PREFIX 2
+
 /* this case suffix means '\0' + '\n' */
 #define SUFFIX 2
 
@@ -58,29 +61,30 @@ enum io_stream {
     s_stderr = 2,
 };
 
+/* Description of application errors */
 enum dc_errors {
-    E_NOERR     = 0,
-    /* supported: [-] | [+] (or digit) only. */
+    E_NOERR     = 0,    /* supported [-] | [+] (or digit) only .*/
     E_INV_SIGN  = -1,
     E_OVF       = -2,
-    /* means different from: -b[B] | -h[H] | -o[O]. */
-    E_INV_SYS   = -3,
+    E_INV_SYS   = -3,   /* different from -b[B] | -h[H] | -o[O] */
     E_UNSUPP    = -4,
     E_STDOUT    = -5,
-    /* we got NULL as ptr in func */
-    E_NULLPT    = -6,
+    E_NULLPT    = -6,   /* we got NULL ar ptr in func */
     E_INVFLG    = -7,
-    /* prec digs count > 2 */
-    E_PRECOVF   = -8,
-    /* unknown preset */
-    E_UNKPRES   = -9,
+    /* E_PRECONV (by num -8) was deleted */
+    E_UNKPRES   = -9,   /* unknown preset */
     E_NOMTHP    = -10,
 };
 
+/* Array of supported presets, order of presets
+ * is important, bcs we use it`s index to choose 
+ * operation. May be that behaviour will be change later. */
 static const char *presets[] = {
     "prec",
 };
 
+/* Indexes (codes) of supported presets
+ * to choose operation. */
 enum preset_op {
     SET_PREC,
 };
@@ -100,30 +104,59 @@ enum repr_mode {
     CLOWER,
 };
 
+/* Representation of number:
+ *      ntype: INT | DOUBLE;
+ *      sppos: position of separator symb ('.');
+ *      err:   err-value;
+ *      size:  count of symbols in number. */
 struct report_t {
     int ntype;
-    /* position of separation symbol */
-    int sppos;
+    int sppos;      /* position of separation symbol */
     int err;
-    /**
-     * number of digits after '.'
-     * int-numbers will have 0 prec.
-     */
     int size;
 };
 
 struct command_t {
-    /* b[B] | o[O] | h[H] */
-    char sys;
-    /* l[L] lowercase, uppercase by default */
-    char repr_m;
-    /* precision for float numbers */
-    int prec;
+    char sys;       /* b[B] | o[O] | h[H] */
+    char repr_m;    /* l[L] lowercase, uppercase by default */
+    int prec;       /* precision for float numbers */
     int err;
     int num_pos;
 };
 
-int check_sign(char *num) {
+static int check_sign(char *num);
+static char *get_ctrl_num(int sign);
+static char *skip_sign(char *num);
+static int check_overflow(char *num, char *c_num, int lim, int size);
+static int detect_num_type(char *num, struct report_t *report);
+static struct report_t *check_num(char *num, char *c_num, int ovf_lim);
+static int del_report(struct report_t *r);
+static int parse_float_precision(const char *arg, struct command_t *cmd, int mth_pos);
+static int match_p(const char *arg, const char *templ);
+static int parse_preset(const char *arg, struct command_t *cmd, const char *preset[]);
+static int convert_mode(const char *mode, struct command_t *cmd, const char *presets[]);
+static struct command_t *parse_command(int argc, char *argv[], const char *presets[]);
+static int del_command(struct command_t *cmd);
+static char *create_string(int size);
+static char decode_symb(num_t dig, char repr_m);
+static void set_num_prefix(char *dest, char *pref);
+static void convert(num_t num, num_t base, char *dest, int *l_pos, char repr_m);
+static void reverse(char *dest, int *l_pos);
+static void print_result(char *src, int max_pos, int *err);
+static void convert_float_part(double tail, char *dest, double base, int prec, char repr_m);
+static void merge_parts(const char *head, const char *tail, char *dest);
+
+/* Return sign of number.
+ * If we found [-] we have signed number,
+ * else we have unsigned number.
+ * Params:
+ *      char *num:      1st symbol in fetched string;
+ * Return:
+ *      int (error code) or int (sign).
+ * 
+ * Always need to check returned value on error. */
+static int
+check_sign(char *num) {
     switch(num[0]) {
         case '-':
             return SIGNED;
@@ -144,26 +177,49 @@ int check_sign(char *num) {
     }
 }
 
-char *get_ctrl_num(int sign) {
+/* Return max number depend on fetched digit.
+ * For unsigned -> 2^64-1, for signed -> 2^63-1.
+ * Params:
+ *      int sign:   1 as unsigned number, 0 as signed number;
+ * Return:
+ *      char*       string, that represents control number
+ *                  for overflow check. */
+static char*
+get_ctrl_num(int sign) {
     if (sign == 1) {
         return SYS_UNS_OVF;
     }
     return SYS_SIGN_OVF;
 }
 
-/**
- * If sign [+] | [-] found, skip it - 
+/* If sign [+] | [-] found, skip it - 
  * return string without sign.
- */
-char *skip_sign(char *num) {
+ * Params:
+ *      char *num:  ptr to fetched string;
+ * Return:
+ *      char *num:  ptr, shifted no next symbol
+ *                  if sign symbol [-] | [+] was
+ *                  found. */
+static char*
+skip_sign(char *num) {
     char *only_digs = num;
-    if ((num[0] == '-') || (num[0] == '+')) {
+    if ((num[0] == '-') || (num[0] == '+'))
         only_digs = ++num;
-    }
     return only_digs;
 }
 
-int check_overflow(char *num, char *c_num, int lim, int size)  {
+/* Check that fetched number is lower or equal to
+ * control number (in case both sizes are equal).
+ * Params:
+ *      char *num:      fetched num without sign (if it was);
+ *      char *c_num:    control number (2^64-1 or 2^63-1) to
+ *                      compare with fetched num;
+ *      int lim:        fetched num symbols count;
+ *      int size:       control num symbols count.
+ * Return:
+ *      int (error code). Have to check returned value. */
+static int
+check_overflow(char *num, char *c_num, int lim, int size) {
     for(int i = 0; i < lim; i++) {
         if ((num[i] > c_num[i]) && (lim == size))
             return E_OVF;
@@ -171,7 +227,17 @@ int check_overflow(char *num, char *c_num, int lim, int size)  {
     return E_NOERR;
 }
 
-int detect_num_type(char *num, struct report_t *report) {
+/* Detect type of num (float or not).
+ * If separator ('.') found, set as float number,
+ * else set as INT.
+ * Params:
+ *      char *num:                  fetched num (as a string);
+ *      struct report_t *report:    ptr to report struct
+ *                                  which we`ll set.
+ * Return:
+ *      int (error code). Have to check returned value. */
+static int
+detect_num_type(char *num, struct report_t *report) {
     int i;
     report->ntype = INT;
     report->sppos = 0;
@@ -191,11 +257,16 @@ int detect_num_type(char *num, struct report_t *report) {
     return E_NOERR;
 }
 
-/**
- * Top-level func to detect exact num type 
- * check overflow.
- */
-struct report_t *check_num(char *num, char *c_num, int ovf_lim) {
+/* Compare fetched num with control num
+ * and set report.
+ * Params:
+ *      char *num:      fetched num as string;
+ *      char *c_num:    control num depend on 
+ *                      fetched num type (signed or unsigned).
+ * Return:
+ *      int (error code). Have to check returned value. */
+static struct report_t*
+check_num(char *num, char *c_num, int ovf_lim) {
     struct report_t *rep;
     int err = E_NOERR;
     rep = malloc(sizeof(*rep));
@@ -205,12 +276,14 @@ struct report_t *check_num(char *num, char *c_num, int ovf_lim) {
     err = detect_num_type(num, rep);
     if (err == E_NOERR) {
         if (rep->ntype == DOUBLE) {
-            if (!c_num[rep->sppos - 1]) 
+
+            /* decrement means shift from '\0' to prev symb */
+            if ((!c_num[rep->sppos - 1]) || (rep->sppos > ovf_lim)) 
                 err = E_OVF;
             else
                 err = check_overflow(num, c_num, rep->sppos, rep->size);
         } else {
-            if (!c_num[rep->size - 1]) 
+            if ((!c_num[rep->size - 1]) || (rep->sppos > ovf_lim))
                 err = E_OVF;
             else
                 err = check_overflow(num, c_num, rep->size, ovf_lim);
@@ -220,66 +293,102 @@ struct report_t *check_num(char *num, char *c_num, int ovf_lim) {
     return rep;
 }
 
-/**
- * Free memory from report
- */
-int del_report(struct report_t *r) {
-    if (r == NULL) {
+/* Free memory from report.
+ * Check fetched ptr on NULL-value, if NULL
+ * error code will be returned.
+ * Params:
+ *      struct report_t *r:     ptr to report struct.
+ * Return:
+ *      int (error code). Have to check returned value. */
+static int
+del_report(struct report_t *r) {
+    if (r == NULL) 
         return E_NULLPT;
-    }
     free(r);
     return E_NOERR;
 }
 
-int parse_float_precision(const char *arg, struct command_t *cmd, int mth_pos) {
+/* Parse fetched precision parameter.
+ * By default precision set as 10. Max value
+ * 32. If fetched precision is bigger that 32,
+ * it will be set as 32.
+ * Params:
+ *      const char *arg:        presision preset;
+ *      struct command_t *cmd:  ptr to command that we will set;
+ *      int mth_pos:            position of 1st digit in presicion 
+ *                              preset.
+ * Return:
+ *      int (error code). Have to check returned value. */
+static int
+parse_float_precision(const char *arg, struct command_t *cmd, int mth_pos) {
     int p_prec = PRECISION;
     char pvalue[] = {'\0', '\0', '\0'};
     for(int i = 0; arg[mth_pos + i]; i++) {
-        if ((arg[mth_pos + i] < '0') || (arg[mth_pos + i] > '9')) {
+        if ((arg[mth_pos + i] < '0') || (arg[mth_pos + i] > '9'))
             return E_UNSUPP;
-        }
         pvalue[i] = arg[mth_pos + i];
         if (i == PREC_NUMS_CNT)
             break;
     }
     p_prec = atoi(pvalue);
-    if (p_prec > MAX_PREC) {
+    if (p_prec > MAX_PREC) 
         p_prec = MAX_PREC;
-    }
     cmd->prec = p_prec;
     return E_NOERR;
 }
 
-int match_p(const char *arg, const char *templ) {
+/* Compare fethed arg with preset from presets[].
+ * If preset matched, return last matched position.
+ * Params:
+ *      const char *arg:        fetched preset;
+ *      const char *templ:      template from presets[].
+ * Return:
+ *      int (last matched position). */
+static int
+match_p(const char *arg, const char *templ) {
     const char *tmp = arg;
     for(; *templ; templ++, arg++) {
-        if (*templ != *arg) {
+        if (*templ != *arg)
             return 0;
-        }
     }
     return arg - tmp;
 }
 
-int parse_preset(const char *arg, struct command_t *cmd, const char *preset[]) {
+/* Parse fetched preset and compare with system-defined.
+ * Params:
+ *      const char *arg:        preset like --[preset]=[value];
+ *      struct command_t *cmd:  ptr to command we will set;
+ *      const char *preset[]:   array of system-defined presets.
+ * Return:
+ *      int (error code). Have to check returned value. */
+static int
+parse_preset(const char *arg, struct command_t *cmd, const char *preset[]) {
     int match = 0, err = E_NOERR;
     for(int i = 0; preset[i]; i++) {
         match = match_p(arg, preset[i]);
-        if (!match) {
+        if (!match)
             continue;
-        }
         switch(i) {
             case SET_PREC:
                 err = parse_float_precision(arg, cmd, match + 1);
                 break;
         }
     }
-    if (!match) {
+    if (!match)
         err = E_NOMTHP;
-    }
     return err;
 }
 
-int convert_mode(const char *mode, struct command_t *cmd, const char *presets[]) {
+/* Compare and set fetched flags and presets
+ * to command struct.
+ * Params:
+ *      const char *mode:       flag | preset;
+ *      struct command_t *cmd:  command which we`ll set;
+ *      const char *presets[]:  system-defined preset symbols.
+ * Return:
+ *      int (error code). Have ti check returned value. */
+static int
+convert_mode(const char *mode, struct command_t *cmd, const char *presets[]) {
     const char *f = ++mode;
     char to_lover;
     char diff = 'a' - 'A';
@@ -312,7 +421,16 @@ int convert_mode(const char *mode, struct command_t *cmd, const char *presets[])
     return E_NOERR;
 }
 
-struct command_t *parse_command(int argc, char *argv[], const char *presets[]) {
+/* Parse fetched commmand.
+ * Params:
+ *      int argc:               cli-args count;
+ *      char *argv[]:           array of flags and presets from cli;
+ *      const char *presets[]:  array of system-defined presets
+ *                              to compare witch fetched.
+ * Return:
+ *      struct command_t *ptr:  pointer to command struct. */
+static struct command_t*
+parse_command(int argc, char *argv[], const char *presets[]) {
     struct command_t *cmd;
     char *arg;
     cmd = malloc(sizeof(*cmd));
@@ -338,30 +456,52 @@ struct command_t *parse_command(int argc, char *argv[], const char *presets[]) {
             break;
         }
     }
-    /**
-     * check if one of supported
-     * systems not set.
-     */
+     /* check if no one of supported
+     * systems set. */
     if (cmd->sys == NO_SYS)
         cmd->err = E_INV_SYS;
     return cmd;
 }
 
-int del_command(struct command_t *cmd) {
-    if (cmd == NULL) {
+/* Free memory from command.
+ * Check fetched ptr on NULL, return error code
+ * if ptr is NULL.
+ * Params:
+ *      struct command_t *cmd:  ptr to command struct.
+ * Return:
+ *      int (error code). Have to check returned value. */
+static int
+del_command(struct command_t *cmd) {
+    if (cmd == NULL)
         return E_NULLPT;
-    }
     free(cmd);
     return E_NOERR;
 }
 
-char *create_string(int size) {
+/* Allocate memory for string.
+ * calloc uses because it fill memory zeroes,
+ * it`s important bsc we check zero value in
+ * other operations.
+ * Params:
+ *      int size:   wished size of string.
+ * Return:
+ *      char *ptr:  ptr to allocated memory. */
+static char*
+create_string(int size) {
     char *ptr;
     ptr = (char*)calloc((size_t)size, (size_t)sizeof(char));
     return ptr;
 }
 
-char decode_symb(num_t dig, char repr_m) {
+/* Convert fetched digit to char.
+ * Params:
+ *      num_t dig:      digit we`ll convert;
+ *      char repr_m:    representation mode (make sence for hex)
+ *                      for convertation symbols to lower case.
+ * Return:
+ *      char:           return symbol. */
+static char
+decode_symb(num_t dig, char repr_m) {
     char c;
     char upp = (32 * repr_m);
     switch(dig) {
@@ -385,16 +525,28 @@ char decode_symb(num_t dig, char repr_m) {
     return c;
 }
 
-/**
- * Add prefix: Ob | 0x | 0o to template
- */
-void set_num_prefix(num_t num, num_t base, char *dest, char *pref) {
-    for(; *pref; ) {
+ /* Add prefix: Ob | 0x | 0o to template.
+  * Params:
+  *     char *dest:     allocated mem for new string;
+  *     char *pref:     num-system prefix (2 symbols).
+  * (void) */
+static void
+set_num_prefix(char *dest, char *pref) {
+    for(; *pref; ) 
         *dest++ = *pref++;
-    }
 }
 
-void convert(num_t num, num_t base, char *dest, int *l_pos, char repr_m) {
+/* Convert decimal number representation
+ * to wished system.
+ * Params:
+ *      num_t num:      unsigned long number (converted from fetched string);
+ *      num_t base:     base of system (2, 8, 16);
+ *      char *dest:     memory for converted num symbols;
+ *      int *l_pos:     as symbols border;
+ *      char repr_m:    representation mode (upper or lower case).
+ * (void) */
+static void
+convert(num_t num, num_t base, char *dest, int *l_pos, char repr_m) {
     num_t symb_no;
     int i;
     for(i = 2; num >= base; i++) {
@@ -406,7 +558,15 @@ void convert(num_t num, num_t base, char *dest, int *l_pos, char repr_m) {
     *l_pos = i;
 }
 
-void reverse(char *dest, int *l_pos) {
+/* Reverse converted string.
+ * (at place)
+ * Params:
+ *      char *dest:     array with converted string
+ *                      symbols;
+ *      int *l_pos:     position of last (non '\0') digit.
+ * (void) */
+static void
+reverse(char *dest, int *l_pos) {
     int i, j;
     char c;
     for(i = 2, j = *l_pos; i < j; i++, j--) {
@@ -415,33 +575,56 @@ void reverse(char *dest, int *l_pos) {
         dest[i] = c;
     }
     dest[*l_pos + 1] = '\n';
-    /**
-     * Add tail for pair '\0\n'
-     */
+
+     /* Add tail for pair '\0\n' */
     *l_pos = ADD_TAIL(*l_pos);
 }
 
-void print_result(char *src, int max_pos, int *err) {
+/* Write result to stdout.
+ * Params:
+ *      char *src:      array of bytes we write;
+ *      int max_pos:    bytes count;
+ *      int *err:       ptr to error variable (for set).
+ * (void) */
+static void
+print_result(char *src, int max_pos, int *err) {
     ssize_t res;
     res = write(s_stdout, src, (ssize_t)max_pos);
-    if ((res < 0) || (res < (ssize_t)max_pos)) {
+    if ((res < 0) || (res < (ssize_t)max_pos))
         *err = E_STDOUT;
-    }
     *err = E_NOERR;
 }
 
-void resize_double(char *fl_part, char *dest, int prec) {
+/* Resize float / double number to
+ * wished precision.
+ * Params:
+ *      char *fl_part:      float part of fetched number;
+ *      char *dest:         destination memory;
+ *      int prec:           wished precision (v.0.1.0 symbols count
+ *                          only. Number will not rounded, only shorted).
+ * (void) */
+static void
+resize_double(char *fl_part, char *dest, int prec) {
     *fl_part = '0';
     for(; *fl_part; dest++, fl_part++) {
         prec--;
-        if (prec <= 0) {
+        if (prec <= 0)
             break;
-        }
         *dest = *fl_part;
     }
 }
 
-void convert_float_part(double tail, char *dest, double base, int prec, char repr_m) {
+/* Convert float part of number to
+ * wished system (bin | oct | hex).
+ * Params:
+ *      double tail:        float part converted to double;
+ *      double base:        num system base (2.0, 8.0, 16.0);
+ *      int prec:           wished prexision of float part;
+ *      char repr_m:        representation mode (make sence for hex)
+ *                          convert literal hex symbols to lower case.
+ * (void) */
+static void
+convert_float_part(double tail, char *dest, double base, int prec, char repr_m) {
     int tmp_t;
     for(int i = 0; i < MAX_PREC; i++) {
         tail = tail * base;
@@ -452,20 +635,26 @@ void convert_float_part(double tail, char *dest, double base, int prec, char rep
     dest[prec] = '\0';
 }
 
-void merge_parts(const char *head, const char *tail, char *dest, int size) {
+/* Compile head part (before separator) and tail part (float part)
+ * together.
+ * Params:
+ *      const char *head:       symbols before separator;
+ *      const char *tail:       symbols after separator;
+ *      char *dest:             new block of memory:
+ *                                  size(pref) + size(head) + size(tail) + size('\0\n').
+ * (void) */
+static void
+merge_parts(const char *head, const char *tail, char *dest) {
     for(; *head; head++, dest++ ) {
-        if (*head == '\n') {
+        if (*head == '\n')
             break;
-        }
         *dest = *head;
     }
-    if (*tail) {
+    if (*tail)
         *dest = '.';
-    }
     dest++;
-    for(; *tail; dest++, tail++ ) {
+    for(; *tail; dest++, tail++ )
         *dest = *tail;
-    }
     *dest = '\n';
 }
 
@@ -510,7 +699,6 @@ int main(int argc, char **argv) {
     }
     cmd = parse_command(argc, argv, presets);
     if (cmd->err != E_NOERR) {
-        // printf("Invalid flag: [%c]. Use: -b[B] (bin) | -h[H] (hex) | -o[O] (oct).\n", cmd->sys);
         printf("ERROR NO: [%d]\n", cmd->err);
         exit(1);
     }
@@ -566,7 +754,7 @@ int main(int argc, char **argv) {
         }
     }
 
-    set_num_prefix(converted_num, base, result, pref);
+    set_num_prefix(result, pref);
     convert(converted_num, base, result, &max_pos, cmd->repr_m);
     reverse(result, &max_pos);
 
@@ -577,7 +765,7 @@ int main(int argc, char **argv) {
          */
         max_pos = ADD_TAIL(symbols) + ADD_TAIL(cmd->prec);
         merged = create_string(max_pos);
-        merge_parts(result, tail, merged, max_pos);
+        merge_parts(result, tail, merged);
         print_result(merged, max_pos, &err);
         free(merged);
         free(tail);

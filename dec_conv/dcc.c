@@ -72,9 +72,9 @@ static int check_num(char *num, struct report_t *rep, char *c_num, int ovf_lim);
 static int del_report(struct report_t *r);
 static int parse_float_precision(const char *arg, struct command_t *cmd, int mth_pos);
 static int match_p(const char *arg, const char *templ);
-static int parse_preset(const char *arg, struct command_t *cmd, const char *preset[]);
-static int convert_mode(const char *mode, struct command_t *cmd, const char *presets[]);
-static struct command_t *parse_command(int argc, char *argv[], const char *presets[]);
+static int parse_preset(const char *arg, void *cmd, const char *preset[]);
+static int convert_mode(const char *mode, void *cmd, const char *presets[]);
+int parse_command(int argc, char *argv[], void *cmd, const char *presets[]);                /*move to parser.c / .h */
 static int del_command(struct command_t *cmd);
 static char decode_symb(num_ul64 dig, char repr_m);
 static void set_num_prefix(char *dest, char *pref);
@@ -257,6 +257,8 @@ del_report(struct report_t *r) {
  *      int (error code). Have to check returned value. */
 static int
 parse_float_precision(const char *arg, struct command_t *cmd, int mth_pos) {
+    /* we`ll decorate this func with top-level func
+     * for cast void* to struct command_t* and back to void*. */
     int p_prec = PRECISION;
     char pvalue[] = {'\0', '\0', '\0'};
     for(int i = 0; arg[mth_pos + i]; i++) {
@@ -298,7 +300,7 @@ match_p(const char *arg, const char *templ) {
  * Return:
  *      int (error code). Have to check returned value. */
 static int
-parse_preset(const char *arg, struct command_t *cmd, const char *preset[]) {
+parse_preset(const char *arg, void *cmd, const char *preset[]) {
     int match = 0, err = E_NOERR;
     for(int i = 0; preset[i]; i++) {
         match = match_p(arg, preset[i]);
@@ -324,7 +326,7 @@ parse_preset(const char *arg, struct command_t *cmd, const char *preset[]) {
  * Return:
  *      int (error code). Have ti check returned value. */
 static int
-convert_mode(const char *mode, struct command_t *cmd, const char *presets[]) {
+convert_mode(const char *mode, void *cmd, const char *presets[]) {
     const char *f = ++mode;
     char to_lover;
     char diff = 'a' - 'A';
@@ -334,6 +336,7 @@ convert_mode(const char *mode, struct command_t *cmd, const char *presets[]) {
             case 'H':
             case 'O':
                 to_lover = (char)(*f + diff);
+                /* TODO create concrete func for each of parameters */
                 cmd->sys = to_lover;
                 break;
             case 'L':
@@ -365,38 +368,36 @@ convert_mode(const char *mode, struct command_t *cmd, const char *presets[]) {
  *                              to compare witch fetched.
  * Return:
  *      struct command_t *ptr:  pointer to command struct. */
-static struct command_t*
-parse_command(int argc, char *argv[], const char *presets[]) {
-    struct command_t *cmd;
+int
+parse_command(int argc, char *argv[], void *cmd, const char *presets[]) {
+    int err = E_NOERR;
     char *arg;
-    cmd = malloc(sizeof(*cmd));
     if (cmd == NULL) {
-        return NULL;
+        return E_NULLPT;
     }
-    cmd->repr_m = CUPPER;
-    cmd->err = E_NOERR;
-    cmd->prec = PRECISION;
-    cmd->sys = NO_SYS;
-    cmd->num_pos = argc - 1;
-    for(int i = 1; i < cmd->num_pos; i++) {
+    /* need macro over cmd->num_pos, we shouldn`t know about cmd here. */
+    for(int i = 1; i < (argc - 1); i++) {
         arg = argv[i];
         switch(arg[0]) {
             case '-':
-                cmd->err = convert_mode(arg, cmd, presets);
+                /* TODO rename func <conver_mode>. */
+                err = convert_mode(arg, cmd, presets);
                 break;
             default:
-                cmd->err = E_INVFLG;
+                err = E_INVFLG;
                 break;
         }
-        if (cmd->err != E_NOERR) {
+        if (err != E_NOERR) {
             break;
         }
     }
      /* check if no one of supported
      * systems set. */
+    /*
     if (cmd->sys == NO_SYS)
         cmd->err = E_INV_SYS;
-    return cmd;
+        */
+    return err;
 }
 
 /* Free memory from command.

@@ -38,18 +38,29 @@
 /* 1 -> for '\0', 1 -> '\n' */
 #define ADD_TAIL(x) (x + 2)
 
-/* macro for convertion into negative repr */
-#define INVERSE(x) (x == '0' ? '1' : '0')
-#define XOR(a, b) (a == b ? '0' : '1')
-#define AND(a, b) ((a == '1') && (b == '1') ? '1' : '0')
-#define OR(a, b) ((a == '0') && (b == '0') ? '0' : '1')
-#define NAND(a, b) (INVERSE(AND(a, b)))
+/* macro for setting size for double num (to alloc mem). */
+#define set_alloc_size_double_head(s) (ADD_TAIL(x) + 1)
+#define set_alloc_size_double_tail() (ADD_TAIL(MAX_PREC))
+#define set_alloc_size_double_num(h_sz, t_sz) (ADD_TAIL(h_sz) + ADD_TAIL(t_sz))
+
+/* macro to alloc mem for int num. */
+#define set_alloc_size_int_num(s) (ADD_PREF_AND_SUFF(s))
+
+#ifdef __cplusplus
+extern "C"
+#endif
 
 typedef unsigned long num_ul64;
 typedef struct report_t *conv_report;
+typedef struct command_t *cli_command;
 
-/* profiles */
+/* profiles of exported functions. */
 conv_report new_report(int *errno);
 int fetch_num(char *num, conv_report report);
+int compile_number(char *num, conv_report report, cli_command cmd);
+int compile_parts_to_double(cli_command cmd, num_ul64 num, char *pref, double base,
+                            char *head, char *tail, char *dest_buffer);
+int compile_parts_to_int(cli_command cmd, num_ul64 num, char *pref, double base,
+                        char *strnumber, char *dest_buffer);
 
 #endif

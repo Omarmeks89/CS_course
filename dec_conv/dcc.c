@@ -4,32 +4,15 @@
 #include <unistd.h>
 
 #include "dcc.h"
+#include "sysutils.h"
+#include "errors.h"
+#include "ioutils.h"
 
 enum sys_base {
     BIN = 2,
     OCT = 8,
     DEC = 10,
     HEX = 16,
-};
-
-enum io_stream {
-    s_stdout = 1,
-    s_stderr = 2,
-};
-
-/* Description of application errors */
-enum dc_errors {
-    E_NOERR     = 0,    /* supported [-] | [+] (or digit) only .*/
-    E_INV_SIGN  = -1,
-    E_OVF       = -2,
-    E_INV_SYS   = -3,   /* different from -b[B] | -h[H] | -o[O] */
-    E_UNSUPP    = -4,
-    E_STDOUT    = -5,
-    E_NULLPT    = -6,   /* we got NULL ar ptr in func */
-    E_INVFLG    = -7,
-    /* E_PRECONV (by num -8) was deleted */
-    E_UNKPRES   = -9,   /* unknown preset */
-    E_NOMTHP    = -10,
 };
 
 /* Array of supported presets, order of presets
@@ -93,12 +76,10 @@ static int parse_preset(const char *arg, struct command_t *cmd, const char *pres
 static int convert_mode(const char *mode, struct command_t *cmd, const char *presets[]);
 static struct command_t *parse_command(int argc, char *argv[], const char *presets[]);
 static int del_command(struct command_t *cmd);
-static char *create_string(int size);
 static char decode_symb(num_ul64 dig, char repr_m);
 static void set_num_prefix(char *dest, char *pref);
 static void convert(num_ul64 num, num_ul64 base, char *dest, int *l_pos, char repr_m);
 static void reverse(char *dest, int *l_pos);
-static void print_result(char *src, int max_pos, int *err);
 static void convert_float_part(double tail, char *dest, double base, int prec, char repr_m);
 static void merge_parts(const char *head, const char *tail, char *dest);
 
@@ -433,21 +414,6 @@ del_command(struct command_t *cmd) {
     return E_NOERR;
 }
 
-/* Allocate memory for string.
- * calloc uses because it fill memory zeroes,
- * it`s important bsc we check zero value in
- * other operations.
- * Params:
- *      int size:   wished size of string.
- * Return:
- *      char *ptr:  ptr to allocated memory. */
-static char*
-create_string(int size) {
-    char *ptr;
-    ptr = (char*)calloc((size_t)size, (size_t)sizeof(char));
-    return ptr;
-}
-
 /* Convert fetched digit to char.
  * Params:
  *      num_ul64 dig:      digit we`ll convert;
@@ -535,21 +501,6 @@ reverse(char *dest, int *l_pos) {
     *l_pos = ADD_TAIL(*l_pos);
 }
 
-/* Write result to stdout.
- * Params:
- *      char *src:      array of bytes we write;
- *      int max_pos:    bytes count;
- *      int *err:       ptr to error variable (for set).
- * (void) */
-static void
-print_result(char *src, int max_pos, int *err) {
-    ssize_t res;
-    res = write(s_stdout, src, (ssize_t)max_pos);
-    if ((res < 0) || (res < (ssize_t)max_pos))
-        *err = E_STDOUT;
-    *err = E_NOERR;
-}
-
 /* Resize float / double number to
  * wished precision.
  * Params:
@@ -606,7 +557,7 @@ merge_parts(const char *head, const char *tail, char *dest) {
         *dest = *head;
     }
     if (*tail)
-        *dest = '.';
+        *dest = ssep;
     dest++;
     for(; *tail; dest++, tail++ )
         *dest = *tail;
@@ -675,7 +626,7 @@ get_num_system_credentials(char sys, int *symbols, char *pref, num_ul64 *base) {
 
 int
 compile_number(char *num, struct report_t *report, struct command_t *cmd) {
-    int symbols = 0, err = E_NOERR, max_pos = 0;
+    int symbols = 0, max_pos = 0;
     char *pref = NULL, *result = NULL, *tail = NULL, *merged = NULL;
     num_ul64 base = 0, converted_num = 0;
     double f_part = 0.0;
@@ -695,9 +646,6 @@ compile_number(char *num, struct report_t *report, struct command_t *cmd) {
         resize_double(&num[report->sppos - 1], tail, MAX_PREC);
         f_part = atof(tail);
         convert_float_part(f_part, tail, (double)base, cmd->prec, cmd->repr_m);
-
-        if (err != E_NOERR) 
-            return err;
     }
     converted_num = strtoul(num, NULL, DEC);
 
@@ -717,5 +665,41 @@ compile_number(char *num, struct report_t *report, struct command_t *cmd) {
         free(tail);
     }
     free(result);
+    return 0;
+}
+
+/* compile all parts of double num representation (head & tail)
+ * into a one array (dest_buffer).
+ * Params:
+ *      */
+int
+compile_parts_to_double(struct command_t *cmd, num_ul64 num, char *pref, double base,
+                char *head, char *tail, char *dest_buffer) {
+    int max_pos = 0;
+    double f_part = 0.0;
+    if (
+            (cmd == NULL) || (pref == NULL) || (head == NULL) ||
+            (tail == NULL) || (dest_buffer == NULL) 
+       )
+        return E_NULLPT;
+    f_part = atof(tail);
+    convert_float_part(f_part, tail, base, cmd->prec, cmd->repr_m);
+    set_num_prefix(head, pref);
+    convert(num, base, head, &max_pos, cmd->repr_m);
+    reverse(head, &max_pos);
+    merge_parts(head, tail, dest_buffer);
+    return E_NOERR;
+}
+
+int
+compile_parts_to_int(struct command_t *cmd, num_ul64 num, char *pref, double base,
+                    char *strnumber, char *dest_buffer) {
+    int max_pos = 0, err = E_NOERR;
+    if ((cmd == NULL) || (pref == NULL) || (strnumber == NULL) || (dest_buffer == NULL))
+        return E_NULLPT;
+    set_num_prefix(strnumber, pref);
+    convert(num, base, strnumber, &max_pos, cmd->repr_m);
+    reverse(strnumber, &max_pos);
+    err = copy_to(strnumber, dest_buffer);
     return err;
 }

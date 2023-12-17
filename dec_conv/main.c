@@ -7,6 +7,7 @@
 #include "ioutils.h"         /* read / write data from / to CLI (terminal). */
 #include "sysutils.h"       /* some system utils that will use all of modules (not implemented at 09/12/2023). */
 #include "drepr.h"          /* represent nondecimal digits like: hex -> bin, bin -> hex, bin -> oct, oct -> hex (etc). */
+#include "parser.h"         /* parse incoming commands using concrete handlers from app modules. */
 
 int main(int argc, char **argv) {
    int sign, err, symbols, max_pos = 0;

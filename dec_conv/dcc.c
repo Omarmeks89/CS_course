@@ -15,19 +15,6 @@ enum sys_base {
     HEX = 16,
 };
 
-/* Array of supported presets, order of presets
- * is important, bcs we use it`s index to choose 
- * operation. May be that behaviour will be change later. */
-static const char *presets[] = {
-    "prec",
-};
-
-/* Indexes (codes) of supported presets
- * to choose operation. */
-enum preset_op {
-    SET_PREC,
-};
-
 enum sign {
     SIGNED = 0,
     UNSIGNED,
@@ -70,11 +57,6 @@ static int check_overflow(char *num, char *c_num, int lim, int size);
 static int detect_num_type(char *num, struct report_t *report);
 static int check_num(char *num, struct report_t *rep, char *c_num, int ovf_lim);
 static int del_report(struct report_t *r);
-static int parse_float_precision(const char *arg, struct command_t *cmd, int mth_pos);
-static int match_p(const char *arg, const char *templ);
-static int parse_preset(const char *arg, void *cmd, const char *preset[]);
-static int convert_mode(const char *mode, void *cmd, const char *presets[]);
-int parse_command(int argc, char *argv[], void *cmd, const char *presets[]);                /*move to parser.c / .h */
 static int del_command(struct command_t *cmd);
 static char decode_symb(num_ul64 dig, char repr_m);
 static void set_num_prefix(char *dest, char *pref);
@@ -255,7 +237,7 @@ del_report(struct report_t *r) {
  *                              preset.
  * Return:
  *      int (error code). Have to check returned value. */
-static int
+int
 parse_float_precision(const char *arg, struct command_t *cmd, int mth_pos) {
     /* we`ll decorate this func with top-level func
      * for cast void* to struct command_t* and back to void*. */
@@ -273,131 +255,6 @@ parse_float_precision(const char *arg, struct command_t *cmd, int mth_pos) {
         p_prec = MAX_PREC;
     cmd->prec = p_prec;
     return E_NOERR;
-}
-
-/* Compare fethed arg with preset from presets[].
- * If preset matched, return last matched position.
- * Params:
- *      const char *arg:        fetched preset;
- *      const char *templ:      template from presets[].
- * Return:
- *      int (last matched position). */
-static int
-match_p(const char *arg, const char *templ) {
-    const char *tmp = arg;
-    for(; *templ; templ++, arg++) {
-        if (*templ != *arg)
-            return 0;
-    }
-    return arg - tmp;
-}
-
-/* Parse fetched preset and compare with system-defined.
- * Params:
- *      const char *arg:        preset like --[preset]=[value];
- *      struct command_t *cmd:  ptr to command we will set;
- *      const char *preset[]:   array of system-defined presets.
- * Return:
- *      int (error code). Have to check returned value. */
-static int
-parse_preset(const char *arg, void *cmd, const char *preset[]) {
-    int match = 0, err = E_NOERR;
-    for(int i = 0; preset[i]; i++) {
-        match = match_p(arg, preset[i]);
-        if (!match)
-            continue;
-        switch(i) {
-            case SET_PREC:
-                err = parse_float_precision(arg, cmd, match + 1);
-                break;
-        }
-    }
-    if (!match)
-        err = E_NOMTHP;
-    return err;
-}
-
-/* Compare and set fetched flags and presets
- * to command struct.
- * Params:
- *      const char *mode:       flag | preset;
- *      struct command_t *cmd:  command which we`ll set;
- *      const char *presets[]:  system-defined preset symbols.
- * Return:
- *      int (error code). Have ti check returned value. */
-static int
-convert_mode(const char *mode, void *cmd, const char *presets[]) {
-    const char *f = ++mode;
-    char to_lover;
-    char diff = 'a' - 'A';
-    for(; *f; f++ ) {
-        switch(*f) {
-            case 'B':
-            case 'H':
-            case 'O':
-                to_lover = (char)(*f + diff);
-                /* TODO create concrete func for each of parameters */
-                cmd->sys = to_lover;
-                break;
-            case 'L':
-                cmd->repr_m = CLOWER;
-                break;
-            case 'b':
-            case 'h':
-            case 'o':
-                cmd->sys = *f;
-                break;
-            case 'l':
-                cmd->repr_m = CLOWER;
-                break;
-            case '-':
-                return parse_preset(++f, cmd, presets);
-            default:
-                cmd->sys = *f;
-                return E_INV_SYS;
-        }
-    }
-    return E_NOERR;
-}
-
-/* Parse fetched commmand.
- * Params:
- *      int argc:               cli-args count;
- *      char *argv[]:           array of flags and presets from cli;
- *      const char *presets[]:  array of system-defined presets
- *                              to compare witch fetched.
- * Return:
- *      struct command_t *ptr:  pointer to command struct. */
-int
-parse_command(int argc, char *argv[], void *cmd, const char *presets[]) {
-    int err = E_NOERR;
-    char *arg;
-    if (cmd == NULL) {
-        return E_NULLPT;
-    }
-    /* need macro over cmd->num_pos, we shouldn`t know about cmd here. */
-    for(int i = 1; i < (argc - 1); i++) {
-        arg = argv[i];
-        switch(arg[0]) {
-            case '-':
-                /* TODO rename func <conver_mode>. */
-                err = convert_mode(arg, cmd, presets);
-                break;
-            default:
-                err = E_INVFLG;
-                break;
-        }
-        if (err != E_NOERR) {
-            break;
-        }
-    }
-     /* check if no one of supported
-     * systems set. */
-    /*
-    if (cmd->sys == NO_SYS)
-        cmd->err = E_INV_SYS;
-        */
-    return err;
 }
 
 /* Free memory from command.

@@ -62,5 +62,6 @@ int compile_parts_to_double(cli_command cmd, num_ul64 num, char *pref, double ba
                             char *head, char *tail, char *dest_buffer);
 int compile_parts_to_int(cli_command cmd, num_ul64 num, char *pref, double base,
                         char *strnumber, char *dest_buffer);
+int parse_float_precision(const char *arg, struct command_t *cmd, int mth_pos);
 
 #endif

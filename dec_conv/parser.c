@@ -90,6 +90,7 @@ handle_arg(const char *mode, void *cmd, const char *presets[]) {
                 cmd->repr_m = CLOWER;
                 break;
             case '-':
+                /* here will be preset like [--X]. */
                 return parse_preset(++f, cmd, presets);
             default:
                 cmd->sys = *f;
@@ -129,11 +130,5 @@ parse_command(int argc, char *argv[], void *cmd, const char *presets[]) {
             break;
         }
     }
-     /* check if no one of supported
-     * systems set. */
-    /*
-    if (cmd->sys == NO_SYS)
-        cmd->err = E_INV_SYS;
-        */
     return err;
 }

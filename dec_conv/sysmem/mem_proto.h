@@ -1,7 +1,7 @@
 #ifndef _MEM_PROTO_ENYRY
 #define _MEM_PROTO_ENYRY
 
-#include <stdlib.h>
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C"

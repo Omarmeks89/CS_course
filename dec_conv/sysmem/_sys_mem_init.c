@@ -6,6 +6,8 @@
 typedef unsigned short s_size;
 typedef unsigned int i_size;
 
+/* Simple mem block described
+ * stored object. */
 struct _mem_block_descriptor {
     s_size block_registry;  /* | 5 bits reserved | 11 bit - free / alloc | 10 bits size | */ 
     void *mem_array;
@@ -14,18 +16,47 @@ struct _mem_block_descriptor {
 typedef struct _mem_block_descriptor *block_descr;
 
 /* TODO need to round by 8 here. */
+#if defined(DEF_PG_SIZE)
+#define __max_blocks_cnt _set_ptr_array_sz()
 struct _mem_image {
     s_size pos;
     s_size free;
     s_size mem_limit;
-    unsigned char f_idx;
-    block_descr descriptors[_set_ptr_array_sz(DEF_PG_SIZE)];
-    void *raw_mem_array;  /* DEF_PG_SIZE - sizeof(i_size) */
+    block_descr descriptors[__max_blocks_cnt];
+    void *raw_mem_array;
+};
+#else
+#error memory size not specified. Use -D DEF_PG_SIZE
+#endif
+
+enum _memblock_state {
+    EMPTY = 0,
+    FREE,
+    ALLOCATE,
 };
 
 /* BSS segment setted always with zeroes. */
 static struct _mem_image g_mem_image;
 static void *_raw_mem;
+#if defined(__max_blocks_cnt)
+static int blocks_tbl[__max_blocks_cnt];
+static const s_size blocks_limit = __max_blocks_cnt;
+#undef __max_blocks_cnt
+#endif
+
+int *
+get_free_memsize() {
+    if (_raw_mem == NULL)
+        return NULL;
+    return (int*)&g_mem_image.free;
+}
+
+int *
+get_memlimit() {
+    if (_raw_mem == NULL)
+        return NULL;
+    return (int*)&g_mem_image.mem_limit;
+}
 
 static void
 _set_mem_image(void *r_mem, struct _mem_image *img_ptr) {
@@ -43,7 +74,6 @@ _set_mem_image(void *r_mem, struct _mem_image *img_ptr) {
             rnd += (PTR_SZ - ((unsigned char)(rnd % PTR_SZ)));
         ptr->raw_mem_array = (void*)(r_mem + (offset + rnd));
         ptr->pos = 0;
-        ptr->f_idx = 0;
         ptr->free = MAX_BLOCK_SZ_BYTES();
         ptr->mem_limit = ptr->free;
         *img_ptr = *ptr;
@@ -65,40 +95,54 @@ int _init_memory() {
 int _free_memory() {
     if (_raw_mem == NULL)
         return E_FREE;
+    for (int i = 0; i < (blocks_limit + 1); i++) {
+        blocks_tbl[i] = EMPTY;
+    }
+    g_mem_image.free = 0;
     free(_raw_mem);
+    _raw_mem = NULL;
     return 0;
+}
+
+static s_size
+_align_size(size_t size) {
+    s_size aligned = 0;
+    aligned += (PTR_SZ - ((s_size)size % PTR_SZ));
+    return aligned > g_mem_image.mem_limit ? g_mem_image.mem_limit : aligned;
 }
 
 block_descr _set_new_mem_block(size_t size) {
     unsigned char offset = 0;
     block_descr block = NULL;
+    s_size new_block_sz = 0, blk_sz = 0;
+
     if ((size > g_mem_image.mem_limit) || (size > g_mem_image.free) || (_raw_mem == NULL))
         return NULL;
+    new_block_sz = _align_size(size);
     for (s_size i = 0; i < (g_mem_image.pos + 1); i++) {
         block = g_mem_image.descriptors[i];
         if (block != NULL) {
-            s_size blk_sz = block->block_registry & 0x04FF;
+            blk_sz = block->block_registry & LIMIT_RANGE_BITS;
             if (
-                    (block->block_registry & ALLOC_BIT_FLG) &&
-                    (blk_sz >= size)
+                    (blocks_tbl[i] == FREE) &&
+                    (blk_sz >= new_block_sz)
                ) {
                 block->block_registry ^= blk_sz;
-                size += PTR_SZ - ((s_size)size % PTR_SZ);
-                size = size > g_mem_image.mem_limit ? g_mem_image.mem_limit : size;
-                block->block_registry |= (s_size)size;
+                block->block_registry |= new_block_sz;
                 block->block_registry ^= ALLOC_BIT_FLG;
+                blocks_tbl[i] = ALLOCATE;
                 return block;
             }
         }
     }
     block = (struct _mem_block_descriptor*)g_mem_image.raw_mem_array;
     g_mem_image.descriptors[g_mem_image.pos] = block;
-    /* set size-bits into registry. */
-    block->block_registry |= ((s_size)size & 0x04FF);
+    block->block_registry |= new_block_sz;
     offset = sizeof(*block);
-    offset += PTR_SZ - ((unsigned char)offset % PTR_SZ);
+    offset += (PTR_SZ - ((unsigned char)offset % PTR_SZ));
     block->mem_array = g_mem_image.raw_mem_array + offset;
-    g_mem_image.free -= (s_size)size;
+    blocks_tbl[g_mem_image.pos] = ALLOCATE;
+    g_mem_image.free -= new_block_sz;
     g_mem_image.pos++;
     g_mem_image.raw_mem_array += offset;
     return block;
@@ -109,11 +153,14 @@ _mark_mem_block_as_free(int block_no) {
     block_descr block = NULL;
     if (_raw_mem == NULL)
         return E_NOMEM;
-    if ((s_size)block_no > g_mem_image.pos)
+    if ((block_no < 0) || (block_no > blocks_limit) || (blocks_tbl[block_no] == EMPTY))
         return E_MEMCRR;
+    if (blocks_tbl[block_no] == FREE)
+        return E_FREE;
     block = g_mem_image.descriptors[block_no];
     /* mark as free block. */
     block->block_registry |= ALLOC_BIT_FLG;
-    g_mem_image.free += (block->block_registry & 0x04FF);
+    g_mem_image.free += (block->block_registry & LIMIT_RANGE_BITS);
+    blocks_tbl[block_no] = FREE;
     return 0;
 }

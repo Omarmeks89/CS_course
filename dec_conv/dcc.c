@@ -3,90 +3,16 @@
 #include <string.h>
 #include <unistd.h>
 
-#ifndef ssep
-#define ssep '.'
-#endif
-
- /* We should define max output size (in symbols)
- * and define overflow value:
- *     max positive: 2^64-1 18 446 744 073 709 551 615
- *     max negative: 2^63 9 223 372 036 854 775 808 */
-#define SYS_UNS_OVF "18446744073709551615"
-#define SYS_SIGN_OVF "9223372036854775808"
-#define PRECISION 10
-#define PREC_NUMS_CNT 2
-#define MAX_PREC 32
-#define NO_SYS ' '
-
-/* we make decrement bcs of '\0' at the end */
-#define OVF_SIZEOF(s) (s == 1 ? sizeof(SYS_UNS_OVF) - 1 : sizeof(SYS_SIGN_OVF) - 1)
-
-/* max str size for binary repr */
-#define BIN_SYMBS_CNT() ((int)64)
-
-/* same for hex and oct */
-#define HEX_SYMBS_CNT() ((int)64 / 4)
-#define OCT_SYMBS_CNT() ((int)(64 / 3) + 1)
-
-/* prefix: 0b | 0x | 0o */
-#define PREFIX 2
-
-/* this case suffix means '\0' + '\n' */
-#define SUFFIX 2
-
-#define SIGN(x) (x < 1 ? '-' : '+')
-#define ADD_PREF_AND_SUFF(x) (x + PREFIX + SUFFIX)
-
-/* 1 -> for '\0', 1 -> '\n' */
-#define ADD_TAIL(x) (x + 2)
-
-/* macro for convertion into negative repr */
-#define INVERSE(x) (x == '0' ? '1' : '0')
-#define XOR(a, b) (a == b ? '0' : '1')
-#define AND(a, b) ((a == '1') && (b == '1') ? '1' : '0')
-#define OR(a, b) ((a == '0') && (b == '0') ? '0' : '1')
-#define NAND(a, b) (INVERSE(AND(a, b)))
-
-typedef unsigned long num_t;
+#include "dcc.h"
+#include "sysutils.h"
+#include "errors.h"
+#include "ioutils.h"
 
 enum sys_base {
     BIN = 2,
     OCT = 8,
     DEC = 10,
     HEX = 16,
-};
-
-enum io_stream {
-    s_stdout = 1,
-    s_stderr = 2,
-};
-
-/* Description of application errors */
-enum dc_errors {
-    E_NOERR     = 0,    /* supported [-] | [+] (or digit) only .*/
-    E_INV_SIGN  = -1,
-    E_OVF       = -2,
-    E_INV_SYS   = -3,   /* different from -b[B] | -h[H] | -o[O] */
-    E_UNSUPP    = -4,
-    E_STDOUT    = -5,
-    E_NULLPT    = -6,   /* we got NULL ar ptr in func */
-    E_INVFLG    = -7,
-    /* E_PRECONV (by num -8) was deleted */
-    E_UNKPRES   = -9,   /* unknown preset */
-    E_NOMTHP    = -10,
-};
-
-/* Array of supported presets, order of presets
- * is important, bcs we use it`s index to choose 
- * operation. May be that behaviour will be change later. */
-static const char *presets[] = {
-    "prec",
-};
-
-/* Indexes (codes) of supported presets
- * to choose operation. */
-enum preset_op {
-    SET_PREC,
 };
 
 enum sign {
@@ -129,20 +55,13 @@ static char *get_ctrl_num(int sign);
 static char *skip_sign(char *num);
 static int check_overflow(char *num, char *c_num, int lim, int size);
 static int detect_num_type(char *num, struct report_t *report);
-static struct report_t *check_num(char *num, char *c_num, int ovf_lim);
+static int check_num(char *num, struct report_t *rep, char *c_num, int ovf_lim);
 static int del_report(struct report_t *r);
-static int parse_float_precision(const char *arg, struct command_t *cmd, int mth_pos);
-static int match_p(const char *arg, const char *templ);
-static int parse_preset(const char *arg, struct command_t *cmd, const char *preset[]);
-static int convert_mode(const char *mode, struct command_t *cmd, const char *presets[]);
-static struct command_t *parse_command(int argc, char *argv[], const char *presets[]);
 static int del_command(struct command_t *cmd);
-static char *create_string(int size);
-static char decode_symb(num_t dig, char repr_m);
+static char decode_symb(num_ul64 dig, char repr_m);
 static void set_num_prefix(char *dest, char *pref);
-static void convert(num_t num, num_t base, char *dest, int *l_pos, char repr_m);
+static void convert(num_ul64 num, num_ul64 base, char *dest, int *l_pos, char repr_m);
 static void reverse(char *dest, int *l_pos);
-static void print_result(char *src, int max_pos, int *err);
 static void convert_float_part(double tail, char *dest, double base, int prec, char repr_m);
 static void merge_parts(const char *head, const char *tail, char *dest);
 
@@ -260,19 +179,18 @@ detect_num_type(char *num, struct report_t *report) {
 /* Compare fetched num with control num
  * and set report.
  * Params:
- *      char *num:      fetched num as string;
- *      char *c_num:    control num depend on 
- *                      fetched num type (signed or unsigned).
+ *      char *num:                  fetched num as string;
+ *      struct report_t *rep:       empty report struct;
+ *      char *c_num:                control num depend on 
+ *                                      fetched num type (signed or unsigned).
+ *      int ovf_lim:                limit len (count of chars).
  * Return:
  *      int (error code). Have to check returned value. */
-static struct report_t*
-check_num(char *num, char *c_num, int ovf_lim) {
-    struct report_t *rep;
+static int
+check_num(char *num, struct report_t *rep, char *c_num, int ovf_lim) {
     int err = E_NOERR;
-    rep = malloc(sizeof(*rep));
-    if (rep == NULL) {
-        return NULL;
-    }
+    if (rep == NULL) 
+        return E_NULLPT;
     err = detect_num_type(num, rep);
     if (err == E_NOERR) {
         if (rep->ntype == DOUBLE) {
@@ -290,7 +208,7 @@ check_num(char *num, char *c_num, int ovf_lim) {
         }
     }
     rep->err = err;
-    return rep;
+    return err;
 }
 
 /* Free memory from report.
@@ -319,8 +237,10 @@ del_report(struct report_t *r) {
  *                              preset.
  * Return:
  *      int (error code). Have to check returned value. */
-static int
+int
 parse_float_precision(const char *arg, struct command_t *cmd, int mth_pos) {
+    /* we`ll decorate this func with top-level func
+     * for cast void* to struct command_t* and back to void*. */
     int p_prec = PRECISION;
     char pvalue[] = {'\0', '\0', '\0'};
     for(int i = 0; arg[mth_pos + i]; i++) {
@@ -335,132 +255,6 @@ parse_float_precision(const char *arg, struct command_t *cmd, int mth_pos) {
         p_prec = MAX_PREC;
     cmd->prec = p_prec;
     return E_NOERR;
-}
-
-/* Compare fethed arg with preset from presets[].
- * If preset matched, return last matched position.
- * Params:
- *      const char *arg:        fetched preset;
- *      const char *templ:      template from presets[].
- * Return:
- *      int (last matched position). */
-static int
-match_p(const char *arg, const char *templ) {
-    const char *tmp = arg;
-    for(; *templ; templ++, arg++) {
-        if (*templ != *arg)
-            return 0;
-    }
-    return arg - tmp;
-}
-
-/* Parse fetched preset and compare with system-defined.
- * Params:
- *      const char *arg:        preset like --[preset]=[value];
- *      struct command_t *cmd:  ptr to command we will set;
- *      const char *preset[]:   array of system-defined presets.
- * Return:
- *      int (error code). Have to check returned value. */
-static int
-parse_preset(const char *arg, struct command_t *cmd, const char *preset[]) {
-    int match = 0, err = E_NOERR;
-    for(int i = 0; preset[i]; i++) {
-        match = match_p(arg, preset[i]);
-        if (!match)
-            continue;
-        switch(i) {
-            case SET_PREC:
-                err = parse_float_precision(arg, cmd, match + 1);
-                break;
-        }
-    }
-    if (!match)
-        err = E_NOMTHP;
-    return err;
-}
-
-/* Compare and set fetched flags and presets
- * to command struct.
- * Params:
- *      const char *mode:       flag | preset;
- *      struct command_t *cmd:  command which we`ll set;
- *      const char *presets[]:  system-defined preset symbols.
- * Return:
- *      int (error code). Have ti check returned value. */
-static int
-convert_mode(const char *mode, struct command_t *cmd, const char *presets[]) {
-    const char *f = ++mode;
-    char to_lover;
-    char diff = 'a' - 'A';
-    for(; *f; f++ ) {
-        switch(*f) {
-            case 'B':
-            case 'H':
-            case 'O':
-                to_lover = (char)(*f + diff);
-                cmd->sys = to_lover;
-                break;
-            case 'L':
-                cmd->repr_m = CLOWER;
-                break;
-            case 'b':
-            case 'h':
-            case 'o':
-                cmd->sys = *f;
-                break;
-            case 'l':
-                cmd->repr_m = CLOWER;
-                break;
-            case '-':
-                return parse_preset(++f, cmd, presets);
-            default:
-                cmd->sys = *f;
-                return E_INV_SYS;
-        }
-    }
-    return E_NOERR;
-}
-
-/* Parse fetched commmand.
- * Params:
- *      int argc:               cli-args count;
- *      char *argv[]:           array of flags and presets from cli;
- *      const char *presets[]:  array of system-defined presets
- *                              to compare witch fetched.
- * Return:
- *      struct command_t *ptr:  pointer to command struct. */
-static struct command_t*
-parse_command(int argc, char *argv[], const char *presets[]) {
-    struct command_t *cmd;
-    char *arg;
-    cmd = malloc(sizeof(*cmd));
-    if (cmd == NULL) {
-        return NULL;
-    }
-    cmd->repr_m = CUPPER;
-    cmd->err = E_NOERR;
-    cmd->prec = PRECISION;
-    cmd->sys = NO_SYS;
-    cmd->num_pos = argc - 1;
-    for(int i = 1; i < cmd->num_pos; i++) {
-        arg = argv[i];
-        switch(arg[0]) {
-            case '-':
-                cmd->err = convert_mode(arg, cmd, presets);
-                break;
-            default:
-                cmd->err = E_INVFLG;
-                break;
-        }
-        if (cmd->err != E_NOERR) {
-            break;
-        }
-    }
-     /* check if no one of supported
-     * systems set. */
-    if (cmd->sys == NO_SYS)
-        cmd->err = E_INV_SYS;
-    return cmd;
 }
 
 /* Free memory from command.
@@ -478,30 +272,15 @@ del_command(struct command_t *cmd) {
     return E_NOERR;
 }
 
-/* Allocate memory for string.
- * calloc uses because it fill memory zeroes,
- * it`s important bsc we check zero value in
- * other operations.
- * Params:
- *      int size:   wished size of string.
- * Return:
- *      char *ptr:  ptr to allocated memory. */
-static char*
-create_string(int size) {
-    char *ptr;
-    ptr = (char*)calloc((size_t)size, (size_t)sizeof(char));
-    return ptr;
-}
-
 /* Convert fetched digit to char.
  * Params:
- *      num_t dig:      digit we`ll convert;
+ *      num_ul64 dig:      digit we`ll convert;
  *      char repr_m:    representation mode (make sence for hex)
  *                      for convertation symbols to lower case.
  * Return:
  *      char:           return symbol. */
 static char
-decode_symb(num_t dig, char repr_m) {
+decode_symb(num_ul64 dig, char repr_m) {
     char c;
     char upp = (32 * repr_m);
     switch(dig) {
@@ -539,20 +318,20 @@ set_num_prefix(char *dest, char *pref) {
 /* Convert decimal number representation
  * to wished system.
  * Params:
- *      num_t num:      unsigned long number (converted from fetched string);
- *      num_t base:     base of system (2, 8, 16);
+ *      num_ul64 num:      unsigned long number (converted from fetched string);
+ *      num_ul64 base:     base of system (2, 8, 16);
  *      char *dest:     memory for converted num symbols;
  *      int *l_pos:     as symbols border;
  *      char repr_m:    representation mode (upper or lower case).
  * (void) */
 static void
-convert(num_t num, num_t base, char *dest, int *l_pos, char repr_m) {
-    num_t symb_no;
+convert(num_ul64 num, num_ul64 base, char *dest, int *l_pos, char repr_m) {
+    num_ul64 symb_no;
     int i;
     for(i = 2; num >= base; i++) {
         symb_no = num % base;
         dest[i] = decode_symb(symb_no, repr_m);
-        num = (num_t)num / base;
+        num = (num_ul64)num / base;
     }
     dest[i] = decode_symb(num, repr_m);
     *l_pos = i;
@@ -578,21 +357,6 @@ reverse(char *dest, int *l_pos) {
 
      /* Add tail for pair '\0\n' */
     *l_pos = ADD_TAIL(*l_pos);
-}
-
-/* Write result to stdout.
- * Params:
- *      char *src:      array of bytes we write;
- *      int max_pos:    bytes count;
- *      int *err:       ptr to error variable (for set).
- * (void) */
-static void
-print_result(char *src, int max_pos, int *err) {
-    ssize_t res;
-    res = write(s_stdout, src, (ssize_t)max_pos);
-    if ((res < 0) || (res < (ssize_t)max_pos))
-        *err = E_STDOUT;
-    *err = E_NOERR;
 }
 
 /* Resize float / double number to
@@ -651,88 +415,81 @@ merge_parts(const char *head, const char *tail, char *dest) {
         *dest = *head;
     }
     if (*tail)
-        *dest = '.';
+        *dest = ssep;
     dest++;
     for(; *tail; dest++, tail++ )
         *dest = *tail;
     *dest = '\n';
 }
 
-int main(int argc, char **argv) {
-    int sign, err, symbols, max_pos = 0;
-    double f_part;
-    num_t converted_num, base;
-    char *num, *result, *tail, *pref, *merged;
-    struct report_t *report;
-    struct command_t *cmd;
+/* create new (alloc mem for new) report struct
+ * Params:
+ *      int *errno: ptr to int value to store errno.
+ * Return:
+ *      struct report_t*: pointer to new empty struct. */
+struct report_t*
+new_report(int *errno) {
+    struct report_t *report = NULL;
+    *errno = E_NOERR;
+    report = malloc(sizeof(*report));
+    if (report == NULL)
+        *errno = E_NULLPT;
+    return report;
+}
 
-    if (argc == 1) {
-        printf("[dcc] Converter for decimal numbers to hex, oct, bin systems.\n"
-                "Version: 0.1.0;\n"
-                "Max positive num: %s (2^64-1);\n"
-                "Max negative num: %s (2^63);\n"
-                "Supported operations with int and float numbers, separator for\n"
-                "float numbers is '.' .\n"
-                "Commands:\n\n"
-                "\t -b[B] - convert number to binary system;\n\n"
-                "\t -o[O] - convert number to octal system;\n\n"
-                "\t -h[H] - convert number to hex system;\n\n"
-                "\t -l[L] - convert hex numbers [A-F] to lower. (capitalized by default)\n\n"
-                "Presets:\n\n"
-                "\t --prec=[number] - set precision for float numbers representation.\n"
-                "\t                   Support number from 0 to 32 (numbers bigger as 32\n"
-                "\t                   will be converted to 32).\n\n"
-                "Signs:\n\n"
-                "\t (Not implemented this version)\n"
-                "\t [+] for positive nums;\n"
-                "\t [-] for negative nums.\n\n", SYS_UNS_OVF, SYS_SIGN_OVF);
-        return 0;
-    }
-    if ((argc > 1) && (argc < 3)) {
-        printf("Not enough args: %d. Need 2 -> [num, [sys]]\n", argc - 1);
-        exit(1);
-    }
-    sign = check_sign(argv[argc - 1]);
-    if (sign == E_INV_SIGN) {
-        printf("Sign %c not supported in %s.\n", argv[argc - 1][0], argv[argc - 1]);
-        exit(1);
-    }
-    cmd = parse_command(argc, argv, presets);
-    if (cmd->err != E_NOERR) {
-        printf("ERROR NO: [%d]\n", cmd->err);
-        exit(1);
-    }
-    num = skip_sign(argv[cmd->num_pos]);
-    report = check_num(num, get_ctrl_num(sign), OVF_SIZEOF(sign));
-    err = report->err;
-    if (err != E_NOERR) {
-        if (err == E_OVF) {
-            printf("Overflow: [%s] | [%c%s]\n", argv[cmd->num_pos], SIGN(sign), get_ctrl_num(sign));
-        } else if (err == E_UNSUPP) {
-            printf("Unsupported symbols in [%s]. Supported: [.0-9]\n", argv[cmd->num_pos]);
-        }
-        exit(1);
-    }
+/* convert raw num from argv and (bad sign) fill
+ * report.
+ * Params:
+ *      char *num:                      num as string from argv;
+ *      struct report_t *report:        struct report for control 
+ *                                          validity.
+ * Return:
+ *      int: errno for checking. */
+int
+fetch_num(char *num, struct report_t *report) {
+    int sign = 0;
+    sign = check_sign(num);
+    if (sign == E_INV_SIGN)  
+        return sign;
+    *num = *skip_sign(num);
+    return check_num(num, report, get_ctrl_num(sign), OVF_SIZEOF(sign));
+}
 
-    converted_num = strtoul(num, NULL, DEC);
-
-    switch(cmd->sys) {
+/* set parameters for the next operations with a number.
+ * Params:
+ *      char sys:       bin | oct | hex;
+ *      int *symbols:   ptr to int container for symbols limit;
+ *      char *pref:     prefix like '0o', '0x', '0b';
+ *      num_ul64 *base: base of current system. */
+static void
+get_num_system_credentials(char sys, int *symbols, char *pref, num_ul64 *base) {
+    switch(sys) {
         case 'b':
-            symbols = BIN_SYMBS_CNT();
-            pref = (char*)"0b";
-            base = (num_t)BIN;
+            *symbols = BIN_SYMBS_CNT();
+            *pref = *(char*)"0b";
+            *base = (num_ul64)BIN;
             break;
         case 'h':
-            symbols = HEX_SYMBS_CNT();
-            pref = (char*)"0x";
-            base = (num_t)HEX;
+            *symbols = HEX_SYMBS_CNT();
+            *pref = *(char*)"0x";
+            *base = (num_ul64)HEX;
             break;
         case 'o':
-            symbols = OCT_SYMBS_CNT();
-            pref = (char*)"0o";
-            base = (num_t)OCT;
+            *symbols = OCT_SYMBS_CNT();
+            *pref = *(char*)"0o";
+            *base = (num_ul64)OCT;
             break;
     }
+}
+
+int
+compile_number(char *num, struct report_t *report, struct command_t *cmd) {
+    int symbols = 0, max_pos = 0;
+    char *pref = NULL, *result = NULL, *tail = NULL, *merged = NULL;
+    num_ul64 base = 0, converted_num = 0;
+    double f_part = 0.0;
+
+    get_num_system_credentials(cmd->sys, &symbols, pref, &base);
 
     if (report->ntype == INT) {
         symbols = ADD_PREF_AND_SUFF(symbols);
@@ -747,12 +504,8 @@ int main(int argc, char **argv) {
         resize_double(&num[report->sppos - 1], tail, MAX_PREC);
         f_part = atof(tail);
         convert_float_part(f_part, tail, (double)base, cmd->prec, cmd->repr_m);
-
-        if (err != E_NOERR) {
-            printf("Can`t convert float part.\n");
-            exit(1);
-        }
     }
+    converted_num = strtoul(num, NULL, DEC);
 
     set_num_prefix(result, pref);
     convert(converted_num, base, result, &max_pos, cmd->repr_m);
@@ -766,21 +519,45 @@ int main(int argc, char **argv) {
         max_pos = ADD_TAIL(symbols) + ADD_TAIL(cmd->prec);
         merged = create_string(max_pos);
         merge_parts(result, tail, merged);
-        print_result(merged, max_pos, &err);
         free(merged);
         free(tail);
-    } else {
-        print_result(result, max_pos, &err);
     }
-
     free(result);
-    del_report(report);
-    del_command(cmd);
-
-    if (err == E_STDOUT) {
-        printf("Output error\n");
-        exit(1);
-    }
-
     return 0;
+}
+
+/* compile all parts of double num representation (head & tail)
+ * into a one array (dest_buffer).
+ * Params:
+ *      */
+int
+compile_parts_to_double(struct command_t *cmd, num_ul64 num, char *pref, double base,
+                char *head, char *tail, char *dest_buffer) {
+    int max_pos = 0;
+    double f_part = 0.0;
+    if (
+            (cmd == NULL) || (pref == NULL) || (head == NULL) ||
+            (tail == NULL) || (dest_buffer == NULL) 
+       )
+        return E_NULLPT;
+    f_part = atof(tail);
+    convert_float_part(f_part, tail, base, cmd->prec, cmd->repr_m);
+    set_num_prefix(head, pref);
+    convert(num, base, head, &max_pos, cmd->repr_m);
+    reverse(head, &max_pos);
+    merge_parts(head, tail, dest_buffer);
+    return E_NOERR;
+}
+
+int
+compile_parts_to_int(struct command_t *cmd, num_ul64 num, char *pref, double base,
+                    char *strnumber, char *dest_buffer) {
+    int max_pos = 0, err = E_NOERR;
+    if ((cmd == NULL) || (pref == NULL) || (strnumber == NULL) || (dest_buffer == NULL))
+        return E_NULLPT;
+    set_num_prefix(strnumber, pref);
+    convert(num, base, strnumber, &max_pos, cmd->repr_m);
+    reverse(strnumber, &max_pos);
+    err = copy_to(strnumber, dest_buffer);
+    return err;
 }

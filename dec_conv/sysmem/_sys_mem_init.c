@@ -46,18 +46,18 @@ static const s_size blocks_limit = __max_blocks_cnt;
 #    undef __max_blocks_cnt
 #endif
 
-int *
+int 
 get_free_memsize() {
     if (_raw_mem == NULL)
-        return NULL;
-    return (int*)&g_mem_image.free;
+        return E_NOMEM;
+    return (int)g_mem_image.free;
 }
 
-int *
+int 
 get_memlimit() {
     if (_raw_mem == NULL)
-        return NULL;
-    return (int*)&g_mem_image.mem_limit;
+        return E_NOMEM;
+    return (int)g_mem_image.mem_limit;
 }
 
 static void

@@ -8,11 +8,11 @@ extern "C"
 #endif
 
 #if defined(DEF_PG_SIZE) && DEF_PG_SIZE > 8048
-#error out of memlimit = 4096
+#    error out of memlimit = 4096
 #elif defined(DEF_PG_SIZE) && DEF_PG_SIZE <= 0
-#define DEF_PG_SIZE 1024
+#    define DEF_PG_SIZE 1024
 #else
-#define DEF_PG_SIZE 2048
+#    define DEF_PG_SIZE 2048
 #endif
 
 #if defined(x32)
@@ -42,5 +42,6 @@ struct _mem_block_descriptor *_set_new_mem_block(size_t size);
 int _mark_mem_block_as_free(int block_no);
 int *get_free_memsize();
 int *get_memlimit();
+struct _mem_block_descriptor *_get_memblock(int block_no);
 
 #endif

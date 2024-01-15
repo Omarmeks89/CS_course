@@ -1,6 +1,8 @@
 #include "_sys_state.h"
 
-static unsigned char _state = 0;
+/* we`ll change value, so we shouldn`t 
+ * try to optimize it. */
+static volatile unsigned char _state = 0;
 
 /* Set initial state as active.
  * I wish i`ll add mutex here to avoid
@@ -14,6 +16,7 @@ __set_sstate() {
     return E_STACC;
 }
 
+/* return current system state. */
 int 
 __sstate_check() {
     return _state;

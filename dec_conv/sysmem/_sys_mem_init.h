@@ -38,8 +38,8 @@ enum _sys_mem_error {
 
 int _init_memory();
 int _free_memory();
-struct _mem_block_descriptor *_set_new_mem_block(size_t size);
-int _mark_mem_block_as_free(int block_no);
+struct _mem_block_descriptor *_set_new_memblock(size_t size);
+int _mark_memblock_as_free(int block_no);
 int get_free_memsize();
 int get_memlimit();
 struct _mem_block_descriptor *_get_memblock(int block_no);

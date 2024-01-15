@@ -124,7 +124,7 @@ _get_memblock(int block_no) {
     return NULL;
 }
 
-block_descr _set_new_mem_block(size_t size) {
+block_descr _set_new_memblock(size_t size) {
     unsigned char offset = 0;
     block_descr block = NULL;
     s_size new_block_sz = 0;
@@ -161,7 +161,7 @@ block_descr _set_new_mem_block(size_t size) {
 }
 
 int
-_mark_mem_block_as_free(int block_no) {
+_mark_memblock_as_free(int block_no) {
     block_descr block = NULL;
     if (_raw_mem == NULL)
         return E_NOMEM;

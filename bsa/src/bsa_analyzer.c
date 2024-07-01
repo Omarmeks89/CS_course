@@ -1,11 +1,12 @@
 #include <stdlib.h>
+#include <errno.h>
 
 #include "bsa_analyzer.h"
 
 struct hierarhy {
     const char  *title;
     size_t      limit;
-    size_t      h_cnt;
+    size_t      pos;
     double      *values;
 };
 
@@ -14,20 +15,58 @@ struct _bsa_weight {
     double      *weights;
 };
 
-static int compute_bsa_weights(H hierarhies[], size_t h_count, W w);
+H new_bsa_hierarhy(char *title, size_t members) {
+    H h;
 
-static int make_rating(W hierarhies_w, W alternatives_w, double rating[]);
+    if (members <= 0)
+        return NULL;
 
-static int
-make_rating(W hierarhies_w, W alternatives_w, double rating[]) {
-    int i, j;
+    h = (H) malloc(sizeof(*h));
+    if (h == NULL)
+        return NULL;
 
-    if ((hierarhies_w == NULL) || (alternatives_w == NULL) || (rating == NULL))
+    h->values = (double *) calloc(members, sizeof(double));
+    if (h->values == NULL)
+        return NULL;
+
+    h->pos= 0;
+    h->limit = members;
+
+    return h;
+}
+
+void free_bsa_hierarhy(H h) {
+    if (h != NULL) {
+        free(h->values);
+        free(h);
+    }
+}
+
+int add_new_hierarhy_value(H h, int value) {
+    if (h == NULL)
         return -1;
 
-    for (i = 0; i < alternatives_w->w_cnt; i++) {
-        for (j = 0; j < hierarhies_w->w_cnt; j++) {
-            rating[i] += alternatives_w->weights[i] * hierarhies_w->weights[j];
+    if (value < 0)
+        return -2;
+
+    if (h->limit == h->pos)
+        return -3;
+
+    h->values[h->pos] = value;
+
+    return 0;
+}
+
+static int
+make_rating(W h, W a, double rating[]) {
+    int i, j;
+
+    if ((h == NULL) || (a == NULL) || (rating == NULL))
+        return -1;
+
+    for (i = 0; i < a->w_cnt; i++) {
+        for (j = 0; j < h->w_cnt; j++) {
+            rating[i] += a->weights[i] * h->weights[j];
         }
     }
 

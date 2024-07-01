@@ -33,10 +33,6 @@ int add_new_hierarhy_value(H h, int value);
 
 void free_bsa_hierarhy(H h);
 
-int add_bsa_criteria(H h);
-
-int add_bsa_alternative(H h);
-
 int bsa(H criterias[], H alternatives[], double rating[]);
 
 #ifdef __cplusplus

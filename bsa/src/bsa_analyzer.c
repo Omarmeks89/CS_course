@@ -44,10 +44,10 @@ void free_bsa_hierarhy(H h) {
 
 int add_new_hierarhy_value(H h, int value) {
     if (h == NULL)
-        return -1;
+        return EFAULT;
 
     if (value < 0)
-        return -2;
+        return EINVAL;
 
     if (h->limit == h->pos)
         return -3;
@@ -62,7 +62,7 @@ make_rating(W h, W a, double rating[]) {
     int i, j;
 
     if ((h == NULL) || (a == NULL) || (rating == NULL))
-        return -1;
+        return EFAULT;
 
     for (i = 0; i < a->w_cnt; i++) {
         for (j = 0; j < h->w_cnt; j++) {
@@ -79,7 +79,7 @@ compute_bsa_weights(H hierarhies[], size_t h_count, W w) {
     int i, j;
 
     if ((hierarhies == NULL) || (w == NULL))
-        return -1;
+        return EFAULT;
 
     for (i = 0; i < h_count; i++) {
         col_sum[i] = 0.0;
@@ -91,7 +91,7 @@ compute_bsa_weights(H hierarhies[], size_t h_count, W w) {
                 tmp = hierarhies[j]->values[i];
 
                 if ((int) tmp <= 0)
-                    return -1;
+                    return EINVAL;
 
                 tmp = (double) 1.0 / tmp;
                 hierarhies[i]->values[j] = tmp;

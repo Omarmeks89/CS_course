@@ -18,7 +18,7 @@ struct _bsa_weight {
 H new_bsa_hierarhy(char *title, size_t members) {
     H h;
 
-    if (members <= 0)
+    if ((members <= 0) || (title == NULL))
         return NULL;
 
     h = (H) malloc(sizeof(*h));
@@ -37,7 +37,8 @@ H new_bsa_hierarhy(char *title, size_t members) {
 
 void free_bsa_hierarhy(H h) {
     if (h != NULL) {
-        free(h->values);
+        if (h->values != NULL)
+            free(h->values);
         free(h);
     }
 }
@@ -57,15 +58,15 @@ int add_new_hierarhy_value(H h, int value) {
     return 0;
 }
 
-static int
+int
 make_rating(W h, W a, double rating[]) {
     int i, j;
 
     if ((h == NULL) || (a == NULL) || (rating == NULL))
         return EFAULT;
 
-    for (i = 0; i < a->w_cnt; i++) {
-        for (j = 0; j < h->w_cnt; j++) {
+    for (i = 0; (size_t) i < a->w_cnt; i++) {
+        for (j = 0; (size_t) j < h->w_cnt; j++) {
             rating[i] += a->weights[i] * h->weights[j];
         }
     }
@@ -73,7 +74,7 @@ make_rating(W h, W a, double rating[]) {
     return 0;
 }
 
-static int
+int
 compute_bsa_weights(H hierarhies[], size_t h_count, W w) {
     double col_sum[h_count], tmp;
     int i, j;
@@ -81,12 +82,12 @@ compute_bsa_weights(H hierarhies[], size_t h_count, W w) {
     if ((hierarhies == NULL) || (w == NULL))
         return EFAULT;
 
-    for (i = 0; i < h_count; i++) {
+    for (i = 0; (size_t) i < h_count; i++) {
         col_sum[i] = 0.0;
     }
 
-    for (i = 0; i < h_count; i++) {
-        for (j = 0; j < h_count; j++) {
+    for (i = 0; (size_t) i < h_count; i++) {
+        for (j = 0; (size_t) j < h_count; j++) {
             if ((int) (hierarhies[i]->values[j]) <= 0) {
                 tmp = hierarhies[j]->values[i];
 
@@ -101,8 +102,8 @@ compute_bsa_weights(H hierarhies[], size_t h_count, W w) {
         }
     }
 
-    for (i = 0; i < h_count; i++) {
-        for (j = 0; j < h_count; j++) {
+    for (i = 0; (size_t) i < h_count; i++) {
+        for (j = 0; (size_t) j < h_count; j++) {
             w->weights[j] += (hierarhies[i]->values[j] / col_sum[j]) / h_count;
         }
     }

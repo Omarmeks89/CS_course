@@ -39,10 +39,19 @@ void test_new_hierarhy_handle_invalid_value() {
     ASSERT_EQ_INT32(EINVAL, res, "test_new_hierarhy_handle_invalid_value", LINE());
 }
 
+void test_make_rating_handle_nullptr() {
+    int res = 0;
+    double rating[1] = {0.123};
+
+    res = make_rating(NULL, NULL, rating);
+    ASSERT_EQ_INT32(EFAULT, res, "test_make_rating_handle_nullptr", LINE());
+}
+
 int main() {
     test_new_bsa_hierarhy_handle_null();
     test_new_bsa_handle_invalid_members();
     test_new_hierarhy_handle_nullptr();
     test_new_hierarhy_handle_invalid_value();
+    test_make_rating_handle_nullptr();
     return 0;
 }

@@ -17,6 +17,7 @@ void test_new_bsa_handle_invalid_members() {
     size_t members = -1;
     H hierarhy = NULL;
 
+    /* will be overflow, because (size_t) is unsigned long int */
     hierarhy = new_bsa_hierarhy(title, members);
     ASSERT_EQ_PTR_NULL(hierarhy, "test_new_bsa_handle_invalid_members", LINE());
 }

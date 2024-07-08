@@ -18,7 +18,7 @@ struct _bsa_weight {
 H new_bsa_hierarhy(char *title, size_t members) {
     H h;
 
-    if ((members <= 0) || (title == NULL))
+    if ((members > MAX_POSSIBLE_MEMBERS) || (title == NULL))
         return NULL;
 
     h = (H) malloc(sizeof(*h));

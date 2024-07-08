@@ -23,6 +23,8 @@ extern "C" {
 
 #include <stdlib.h>
 
+#define MAX_POSSIBLE_MEMBERS 1024
+
 typedef struct hierarhy *H;
 
 typedef struct _bsa_weight *W;

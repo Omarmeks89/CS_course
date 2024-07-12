@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <errno.h>
 
 #include "bsa_analyzer.h"
@@ -43,6 +44,31 @@ void free_bsa_hierarhy(H h) {
     }
 }
 
+W new_bsa_weight(size_t weights) {
+    W w;
+
+    if (weights > MAX_POSSIBLE_MEMBERS)
+        return NULL;
+
+    w = (W) malloc(sizeof(*w));
+    if (w == NULL)
+        return NULL;
+
+    w->weights = (double *) calloc(weights, sizeof(double));
+    if (w->weights == NULL)
+        return NULL;
+
+    return w;
+}
+
+void free_weight(W w) {
+    if (w != NULL) {
+        if (w->weights != NULL)
+            free(w->weights);
+        free(w);
+    }
+}
+
 int add_new_hierarhy_value(H h, int value) {
     if (h == NULL)
         return EFAULT;
@@ -53,7 +79,8 @@ int add_new_hierarhy_value(H h, int value) {
     if (h->limit == h->pos)
         return -3;
 
-    h->values[h->pos] = value;
+    h->values[h->pos] = (double) value;
+    h->pos++;
 
     return 0;
 }
@@ -91,7 +118,7 @@ compute_bsa_weights(H hierarhies[], size_t h_count, W w) {
             if ((int) (hierarhies[i]->values[j]) <= 0) {
                 tmp = hierarhies[j]->values[i];
 
-                if ((int) tmp <= 0)
+                if ((int) tmp < 0)
                     return EINVAL;
 
                 tmp = (double) 1.0 / tmp;

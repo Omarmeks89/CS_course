@@ -11,5 +11,8 @@ OUT_STREAMS=-DESTRM=$(ESTRM) -DMSTRM=$(MSTRM)
 bsa_ptrs_test: $(SOURCE)
 	$(C) $(WFLAGS) $(OUT_STREAMS) -std=$(STD) -lm test/unit/test_bsa_handle_invalid_pointers.c -o bsa_ptrs_test
 
+bsa_hierarhies_test: $(SOURCE)
+	$(C) $(WFLAGS) $(OUT_STREAMS) -std=$(STD) -lm test/unit/test_hierarhies_creation.c -o bsa_hierarhies_test
+
 clear:
 	rm -rf *_test *.txt

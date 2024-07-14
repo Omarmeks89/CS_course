@@ -47,7 +47,8 @@ void free_bsa_hierarhy(H h) {
 W new_bsa_weight(size_t weights) {
     W w;
 
-    if (weights > MAX_POSSIBLE_MEMBERS)
+    if ((weights > MAX_POSSIBLE_MEMBERS) || (weights == 0))
+        /* we guarantee, that w->w_cnt will be bigger as zero */
         return NULL;
 
     w = (W) malloc(sizeof(*w));
@@ -59,6 +60,17 @@ W new_bsa_weight(size_t weights) {
         return NULL;
 
     return w;
+}
+
+int get_weight(W w, double *weight, size_t pos) {
+    if (pos > (w->w_cnt - 1))
+        return EINVAL;
+
+    if ((weight == NULL) || (w == NULL))
+        return EFAULT;
+
+    *weight = w->weights[pos];
+    return 0;
 }
 
 void free_weight(W w) {
@@ -115,7 +127,9 @@ compute_bsa_weights(H hierarhies[], size_t h_count, W w) {
 
     for (i = 0; (size_t) i < h_count; i++) {
         for (j = 0; (size_t) j < h_count; j++) {
-            if ((int) (hierarhies[i]->values[j]) <= 0) {
+            tmp = hierarhies[i]->values[j];
+
+            if ((int) tmp <= 0) {
                 tmp = hierarhies[j]->values[i];
 
                 if ((int) tmp < 0)
@@ -124,14 +138,13 @@ compute_bsa_weights(H hierarhies[], size_t h_count, W w) {
                 tmp = (double) 1.0 / tmp;
                 hierarhies[i]->values[j] = tmp;
             }
-
             col_sum[j] += tmp;
         }
     }
 
     for (i = 0; (size_t) i < h_count; i++) {
         for (j = 0; (size_t) j < h_count; j++) {
-            w->weights[j] += (hierarhies[i]->values[j] / col_sum[j]) / h_count;
+            w->weights[i] += (hierarhies[i]->values[j] / col_sum[j]) / h_count;
         }
     }
 

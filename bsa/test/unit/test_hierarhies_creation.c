@@ -35,6 +35,8 @@ void test_build_hierarhies() {
 void test_calc_weights_from_hierarhies() {
     char *titles[3] = {"one", "two", "three"};
     int grades[3][3] = {{1, 3, 5}, {0, 1, 3}, {0, 0, 1}};
+    double wcheck[3] = {0.63, 0.26, 0.11};
+    double valcheck;
     int *grade;
     size_t members_cnt = 3;
     H hierarhies[3];
@@ -44,7 +46,7 @@ void test_calc_weights_from_hierarhies() {
 
     /* EINVAL */
     w = new_bsa_weight(members_cnt);
-    ASSERT_NE_PTR_NULL(h, "new_bsa_weight_creation", LINE());
+    ASSERT_NE_PTR_NULL(w, "new_bsa_weight_creation", LINE());
 
     for (i = 0; (size_t) i < members_cnt; i++) { 
         h = new_bsa_hierarhy(titles[i], members_cnt);
@@ -61,6 +63,11 @@ void test_calc_weights_from_hierarhies() {
 
     for (i = 0; (size_t) i < members_cnt; i++) {
         free_bsa_hierarhy(hierarhies[i]);
+    }
+
+    for (i = 0; (size_t) i < members_cnt; i++) {
+        get_weight(w, &valcheck, (size_t) i);
+        ASSERT_EQ_DBL(wcheck[i], valcheck, DBL_e_2, "calc_weight_check", LINE());
     }
 
     free(w);

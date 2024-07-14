@@ -8,6 +8,8 @@ MSTRM?=1
 SOURCE=
 OUT_STREAMS=-DESTRM=$(ESTRM) -DMSTRM=$(MSTRM)
 
+build: bsa_hierarhies_test bsa_ptrs_test
+
 bsa_ptrs_test: $(SOURCE)
 	$(C) $(WFLAGS) $(OUT_STREAMS) -std=$(STD) -lm test/unit/test_bsa_handle_invalid_pointers.c -o bsa_ptrs_test
 

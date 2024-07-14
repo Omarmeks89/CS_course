@@ -59,6 +59,8 @@ W new_bsa_weight(size_t weights) {
     if (w->weights == NULL)
         return NULL;
 
+    w->w_cnt = weights;
+
     return w;
 }
 

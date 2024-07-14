@@ -56,6 +56,17 @@ void test_new_weight_handle_null() {
     ASSERT_EQ_PTR_NULL(w, "test_new_weight_handle_null", LINE());
 }
 
+void test_weight_handle_invalid_pos() {
+    W w;
+    size_t weights_cnt = 3, invalid_pos = 10;
+    double v = -1.0;
+    int res = -1;
+
+    w = new_bsa_weight(weights_cnt);
+    res = get_weight(w, &v, invalid_pos);
+    ASSERT_EQ_INT32(res, EINVAL, "raise EINVAL", LINE());
+}
+
 int main() {
     test_new_bsa_hierarhy_handle_null();
     test_new_bsa_handle_invalid_members();
@@ -63,5 +74,6 @@ int main() {
     test_new_hierarhy_handle_invalid_value();
     test_make_rating_handle_nullptr();
     test_new_weight_handle_null();
+    test_weight_handle_invalid_pos();
     return 0;
 }

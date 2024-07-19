@@ -75,8 +75,7 @@ void test_calc_weights_from_hierarhies() {
 
 void test_calc_rating() {
     char *titles[3] = {"one", "two", "three"};
-    int grades[3][3] = {{1, 3, 5}, {0, 1, 3}, {0, 0, 1}};
-    double rating[3] = {0.0, 0.0, 0.0};
+    double rating[3] = {0.0, 0.0, 0.0}, wg;
 
     /* table of grades by each criteria */
     int cr_grades[3][3][3] = {
@@ -85,30 +84,21 @@ void test_calc_rating() {
         {{1, 2, 4}, {0, 1, 6}, {0, 0, 1}},
     };
 
-    int *grade;
     size_t members_cnt = 3;
-    H hierarhies[3], altern[3][3];
-    H h;
-    W w;
-    W wghts[3];
+    H altern[3][3], h;
+    W wghts[3], w;
+    double control_weights[3] = {0.63, 0.26, 0.11};
     int i = 0, j = 0, k = 0, res = -1;
 
     /* EINVAL */
-    w = new_bsa_weight(members_cnt);
+    w = (W) malloc(sizeof(struct _bsa_weight));
+    w->w_cnt = members_cnt;
 
-    /* set hierarhies */
-    for (i = 0; (size_t) i < members_cnt; i++) { 
-        h = new_bsa_hierarhy(titles[i], members_cnt);
-        hierarhies[i] = h;
-        grade = grades[i];
+    w->weights = (double *) malloc(sizeof(double) * 3);
 
-        for (j = 0; (size_t) j < members_cnt; j++) {
-            add_new_hierarhy_value(h, grade[j]);
-        }
+    for (i = 0; (size_t) i < members_cnt; i++) {
+        w->weights[i] = control_weights[i];
     }
-
-    res = compute_bsa_weights(hierarhies, members_cnt, w);
-    ASSERT_EQ_INT32(0, res, "test_compute_hierarhies_weight", LINE());
 
     for (k = 0; (size_t) k < members_cnt; k++) {
 
@@ -129,16 +119,20 @@ void test_calc_rating() {
         wghts[k] = new_bsa_weight(members_cnt);
         res = compute_bsa_weights(altern[k], members_cnt, wghts[k]);
         ASSERT_EQ_INT32(0, res, "test_compute_altern_weights", LINE());
+
+        for (i = 0; (size_t) i < members_cnt; i++) {
+            get_weight(wghts[k], &wg, (size_t) i);
+            printf("alt=%d, w[%d]=%.4lf\n", k, i, wg);
+        }
     }
 
     for (k = 0; (size_t) k < members_cnt; k++) {
         /* iterate by wghts[k] */
-        res = make_rating(w, wghts[k], rating);
+        res = make_rating(w, wghts[k], &rating[k]);
         ASSERT_EQ_INT32(0, res, "test_compute_rating", LINE());
     }
 
     for (i = 0; (size_t) i < members_cnt; i++) {
-        free_bsa_hierarhy(hierarhies[i]);
         free_weight(wghts[i]);
 
         for (j = 0; (size_t) j < members_cnt; j++) {
@@ -146,7 +140,11 @@ void test_calc_rating() {
         }
     }
 
-    free_weight(w);
+    for (i = 0; (size_t) i < members_cnt; i++) {
+        printf("alt_no=%d, rating=%.3lf\n", i, rating[i]); 
+    }
+
+    free(w);
 }
 
 int main() {

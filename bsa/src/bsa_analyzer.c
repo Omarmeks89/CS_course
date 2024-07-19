@@ -100,16 +100,14 @@ int add_new_hierarhy_value(H h, int value) {
 }
 
 int
-make_rating(W h, W a, double rating[]) {
-    int i, j;
+make_rating(W h, W a, double *rating) {
+    int i;
 
     if ((h == NULL) || (a == NULL) || (rating == NULL))
         return EFAULT;
 
     for (i = 0; (size_t) i < a->w_cnt; i++) {
-        for (j = 0; (size_t) j < h->w_cnt; j++) {
-            rating[i] += a->weights[i] * h->weights[j];
-        }
+        *rating += a->weights[i] * h->weights[i];
     }
 
     return 0;

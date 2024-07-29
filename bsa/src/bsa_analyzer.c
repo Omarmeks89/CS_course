@@ -16,6 +16,8 @@ struct _bsa_weight {
     double      *weights;
 };
 
+typedef struct _bsa_weight *W;
+
 H new_bsa_hierarhy(char *title, size_t members) {
     H h;
 
@@ -156,16 +158,17 @@ void free_bsa_rating(bsa_rating_t r) {
     int i = 0;
 
     if (r != NULL) {
-        if (r->rating != NULL)
+        if (r->rating != NULL) {
             for (i = 0; (size_t) i < r->size; i++) {
                 free_bsa_assessment(r->rating[i]);
             }
             free(r->rating);
+        }
         free(r);
     }
 }
 
-static int
+int
 add_new_assessment(bsa_rating_t r, const char *title, double value, size_t pos) {
     assessment_t a;
 

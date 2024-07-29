@@ -27,6 +27,8 @@ extern "C" {
 
 typedef struct hierarhy *H;
 
+typedef struct assessment *assessment_t;
+
 typedef struct bsa_rating *bsa_rating_t;
 
 H new_bsa_hierarhy(char *title, size_t members);
@@ -36,8 +38,6 @@ int add_new_hierarhy_value(H h, int value);
 void free_bsa_hierarhy(H h);
 
 bsa_rating_t make_bsa_raiting(size_t obj_cnt);
-
-void free_bsa_rating(bsa_rating_t r);
 
 int bsa(bsa_rating_t r, H criterias[], ...);
 

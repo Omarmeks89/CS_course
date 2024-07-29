@@ -115,13 +115,6 @@ void test_calc_rating() {
         wghts[k] = new_bsa_weight(members_cnt);
         res = compute_bsa_weights(altern[k], members_cnt, wghts[k]);
         ASSERT_EQ_INT32(0, res, "test_compute_altern_weights", LINE());
-# if 0
-
-        for (i = 0; (size_t) i < members_cnt; i++) {
-            get_weight(wghts[k], &wg, (size_t) i);
-            printf("alt=%d, w[%d]=%.4lf\n", k, i, wg);
-        }
-# endif
     }
 
     for (k = 0; (size_t) k < members_cnt; k++) {
@@ -137,11 +130,6 @@ void test_calc_rating() {
             free_bsa_hierarhy(altern[i][j]);
         }
     }
-# if 0
-    for (i = 0; (size_t) i < members_cnt; i++) {
-        printf("alt_no=%d, rating=%.3lf\n", i, rating[i]); 
-    }
-# endif
 
     free(w);
 }

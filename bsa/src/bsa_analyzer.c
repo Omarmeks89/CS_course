@@ -36,6 +36,22 @@ H new_bsa_hierarhy(char *title, size_t members) {
     return h;
 }
 
+int add_new_hierarhy_value(H h, int value) {
+    if (h == NULL)
+        return EFAULT;
+
+    if (value < 0)
+        return EINVAL;
+
+    if (h->limit == h->pos)
+        return -3;
+
+    h->values[h->pos] = (double) value;
+    h->pos++;
+
+    return 0;
+}
+
 void free_bsa_hierarhy(H h) {
     if (h != NULL) {
         if (h->values != NULL)
@@ -83,19 +99,87 @@ void free_weight(W w) {
     }
 }
 
-int add_new_hierarhy_value(H h, int value) {
-    if (h == NULL)
+struct assessment {
+    const char *title;
+    double value;
+};
+
+typedef struct assessment *assessment_t;
+
+static assessment_t
+make_bsa_assessment(const char *title, double value) {
+    assessment_t a;
+
+    if (title == NULL)
+        return NULL;
+
+    a = (assessment_t) malloc(sizeof(assessment_t));
+    if (a == NULL)
+        return NULL;
+
+    a->title = title;
+    a->value = value;
+    return a;
+}
+
+static void
+free_bsa_assessment(assessment_t a) {
+    if (a != NULL)
+        free(a);
+}
+
+struct bsa_rating {
+    size_t size;
+    assessment_t *rating;
+};
+
+bsa_rating_t
+make_bsa_raiting(size_t obj_cnt) {
+    bsa_rating_t r;
+
+    if (obj_cnt > MAX_POSSIBLE_MEMBERS)
+        return NULL;
+
+    r = (bsa_rating_t) malloc(sizeof(bsa_rating_t));
+    if (r == NULL)
+        return NULL;
+
+    r->rating = (assessment_t *) calloc(obj_cnt, sizeof(assessment_t));
+    if (r->rating == NULL)
+        return NULL;
+
+    r->size = obj_cnt;
+    return r;
+}
+
+void free_bsa_rating(bsa_rating_t r) {
+    int i = 0;
+
+    if (r != NULL) {
+        if (r->rating != NULL)
+            for (i = 0; (size_t) i < r->size; i++) {
+                free_bsa_assessment(r->rating[i]);
+            }
+            free(r->rating);
+        free(r);
+    }
+}
+
+static int
+add_new_assessment(bsa_rating_t r, const char *title, double value, size_t pos) {
+    assessment_t a;
+
+    if (r == NULL)
         return EFAULT;
 
-    if (value < 0)
+    if (pos > r->size)
         return EINVAL;
 
-    if (h->limit == h->pos)
-        return -3;
+    a = make_bsa_assessment(title, value);
+    if (a == NULL)
+        return EFAULT;
 
-    h->values[h->pos] = (double) value;
-    h->pos++;
-
+    r->rating[pos] = a;
     return 0;
 }
 
@@ -150,3 +234,5 @@ compute_bsa_weights(H hierarhies[], size_t h_count, W w) {
 
     return 0;
 }
+
+int bsa(bsa_rating_t r, H hierarhies[], ...);

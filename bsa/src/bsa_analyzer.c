@@ -101,105 +101,31 @@ void free_weight(W w) {
     }
 }
 
-struct assessment {
-    const char *title;
-    double value;
-};
-
-typedef struct assessment *assessment_t;
-
-static assessment_t
-make_bsa_assessment(const char *title, double value) {
-    assessment_t a;
-
-    if (title == NULL)
-        return NULL;
-
-    a = (assessment_t) malloc(sizeof(assessment_t));
-    if (a == NULL)
-        return NULL;
-
-    a->title = title;
-    a->value = value;
-    return a;
-}
-
-static void
-free_bsa_assessment(assessment_t a) {
-    if (a != NULL)
-        free(a);
-}
-
-struct bsa_rating {
-    size_t size;
-    assessment_t *rating;
-};
-
-bsa_rating_t
-make_bsa_raiting(size_t obj_cnt) {
-    bsa_rating_t r;
-
-    if (obj_cnt > MAX_POSSIBLE_MEMBERS)
-        return NULL;
-
-    r = (bsa_rating_t) malloc(sizeof(bsa_rating_t));
-    if (r == NULL)
-        return NULL;
-
-    r->rating = (assessment_t *) calloc(obj_cnt, sizeof(assessment_t));
-    if (r->rating == NULL)
-        return NULL;
-
-    r->size = obj_cnt;
-    return r;
-}
-
-void free_bsa_rating(bsa_rating_t r) {
-    int i = 0;
-
-    if (r != NULL) {
-        if (r->rating != NULL) {
-            for (i = 0; (size_t) i < r->size; i++) {
-                free_bsa_assessment(r->rating[i]);
-            }
-            free(r->rating);
-        }
-        free(r);
-    }
-}
-
+/* a -> [Da, Ca], rating -> [0.0, 0.0], h -> a
+ * looks like: rating[i] += a[i] * a;
+ * [Da, Ca] here means weghts alternative D & C
+ * by criteria a.
+ *
+ * So we have N alternatives and rating[N] and
+ * M criterias, and we have alternatives weights by
+ * each criteria. */
 int
-add_new_assessment(bsa_rating_t r, const char *title, double value, size_t pos) {
-    assessment_t a;
-
-    if (r == NULL)
-        return EFAULT;
-
-    if (pos > r->size)
-        return EINVAL;
-
-    a = make_bsa_assessment(title, value);
-    if (a == NULL)
-        return EFAULT;
-
-    r->rating[pos] = a;
-    return 0;
-}
-
-int
-make_rating(W h, W a, double *rating) {
+make_rating(double hr_weight, W a, double rating[]) {
     int i;
 
-    if ((h == NULL) || (a == NULL) || (rating == NULL))
+    if ((a == NULL) || (rating == NULL))
         return EFAULT;
 
     for (i = 0; (size_t) i < a->w_cnt; i++) {
-        *rating += a->weights[i] * h->weights[i];
+        rating[i] += a->weights[i] * hr_weight;
     }
 
     return 0;
 }
 
+
+/* will compute weight from hierarhies[] and 
+ * set to Weight type. */
 int
 compute_bsa_weights(H hierarhies[], size_t h_count, W w) {
     double col_sum[h_count], tmp;
@@ -238,4 +164,3 @@ compute_bsa_weights(H hierarhies[], size_t h_count, W w) {
     return 0;
 }
 
-int bsa(bsa_rating_t r, H hierarhies[], ...);

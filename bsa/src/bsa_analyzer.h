@@ -37,10 +37,6 @@ int add_new_hierarhy_value(H h, int value);
 
 void free_bsa_hierarhy(H h);
 
-bsa_rating_t make_bsa_raiting(size_t obj_cnt);
-
-int bsa(bsa_rating_t r, H criterias[], ...);
-
 #ifdef __cplusplus
 }
 #endif                                                  /* __cplusplus */

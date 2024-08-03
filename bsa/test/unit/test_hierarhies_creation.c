@@ -101,8 +101,6 @@ void test_calc_rating() {
     for (k = 0; (size_t) k < members_cnt; k++) {
         for (i = 0; (size_t) i < members_cnt; i++) { 
             h = new_bsa_hierarhy(titles[i], members_cnt);
-
-            /* where k -> criteria_no, i -> altern_no */
             altern[k][i] = h;
 
             for (j = 0; (size_t) j < members_cnt; j++) {
@@ -110,20 +108,18 @@ void test_calc_rating() {
             }
         }
 
-        /* we will have 3 weights with [a, b, c] array inside
-         * next we will join with criterias */
         wghts[k] = new_bsa_weight(members_cnt);
         res = compute_bsa_weights(altern[k], members_cnt, wghts[k]);
         ASSERT_EQ_INT32(0, res, "test_compute_altern_weights", LINE());
     }
 
     for (k = 0; (size_t) k < members_cnt; k++) {
-        /* iterate by wghts[k] */
-        res = make_rating(w, wghts[k], &rating[k]);
+        res = make_rating(w->weights[k], wghts[k], rating);
         ASSERT_EQ_INT32(0, res, "test_compute_rating", LINE());
     }
 
     for (i = 0; (size_t) i < members_cnt; i++) {
+        printf("%.3lf\n", rating[i]);
         free_weight(wghts[i]);
 
         for (j = 0; (size_t) j < members_cnt; j++) {
@@ -131,7 +127,7 @@ void test_calc_rating() {
         }
     }
 
-    free(w);
+    free_weight(w);
 }
 
 int main() {

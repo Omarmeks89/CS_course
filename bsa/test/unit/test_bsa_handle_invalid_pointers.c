@@ -44,7 +44,7 @@ void test_make_rating_handle_nullptr() {
     int res = 0;
     double rating[1] = {0.123};
 
-    res = make_rating(NULL, NULL, rating);
+    res = make_rating(0.0, NULL, rating);
     ASSERT_EQ_INT32(EFAULT, res, "test_make_rating_handle_nullptr", LINE());
 }
 

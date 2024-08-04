@@ -160,7 +160,6 @@ compute_bsa_weights(H hierarhies[], size_t h_count, W w) {
             w->weights[i] += (hierarhies[i]->values[j] / col_sum[j]) / h_count;
         }
     }
-
     return 0;
 }
 

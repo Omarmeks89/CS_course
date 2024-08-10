@@ -193,11 +193,134 @@ void test_calc_rating_assymmetric() {
     free_weight(w);
 }
 
+/* 3c - 3 criterias, 3a - 3 alternatives. */
+void test_compute_rating_has_same_res_as_3c3a() {
+    char *titles[3] = {"one", "two", "three"};
+    int crt_grades[3][3] = {{1, 3, 5}, {0, 1, 3}, {0, 0, 1}};
+    int *grade;
+
+    int alts_grades[9][3] = {
+        {1, 2, 2}, {0, 1, 5}, {0, 0, 1},
+        {1, 0, 5}, {4, 1, 8}, {0, 0, 1},
+        {1, 4, 8}, {0, 1, 0}, {0, 5, 1},
+    };
+    H hierarhies[3], h;
+
+    size_t crt_cnt = 3, alts_cnt = 3;
+    H alterns[crt_cnt * alts_cnt];
+
+    int i = 0, j = 0, res = -1;
+
+    double rating[3] = {0.0, 0.0, 0.0};
+    double ctrl_res[3] = {0.425, 0.439, 0.135};
+
+    /* fill criterias */
+    for (i = 0; (size_t) i < crt_cnt; i++) { 
+        h = new_bsa_hierarhy(titles[i], crt_cnt);
+
+        hierarhies[i] = h;
+        grade = crt_grades[i];
+
+        for (j = 0; (size_t) j < crt_cnt; j++) {
+            res = add_new_hierarhy_value(h, grade[j]);
+            ASSERT_EQ_INT32(res, 0, "criteria added", LINE());
+        }
+    }
+
+    /* fill alternatives */
+    for (i = 0; (size_t) i < (crt_cnt * alts_cnt); i++) {
+        h = new_bsa_hierarhy("_", alts_cnt);
+        for (j = 0; (size_t) j < alts_cnt; j++) {
+            res = add_new_hierarhy_value(h, alts_grades[i][j]);
+            ASSERT_EQ_INT32(res, 0, "alternative added", LINE());
+        }
+        alterns[i] = h;
+    }
+
+    res = compute_rating(alterns, hierarhies, crt_cnt, alts_cnt, rating);
+    ASSERT_EQ_INT32(res, 0, "rating calculated", LINE());
+
+    for (i = 0; (size_t) i < alts_cnt; i++) {
+        EXPECT_EQ_DBL(rating[i], ctrl_res[i], DBL_e_3, "calc_control", LINE());
+    }
+
+    for (i = 0; (size_t) i < alts_cnt; i++) {
+        free_bsa_hierarhy(hierarhies[i]);
+    }
+
+    for (i = 0; (size_t) i < (crt_cnt * alts_cnt); i++) {
+        free_bsa_hierarhy(alterns[i]);
+    }
+}
+
+/* 3c - 3 criterias, 2a - 3 alternatives. */
+void test_compute_rating_has_same_res_as_3c2a() {
+    char *titles[3] = {"one", "two", "three"};
+    int crt_grades[3][3] = {{1, 3, 5}, {0, 1, 3}, {0, 0, 1}};
+    int *grade;
+
+    int alts_grades[6][2] = {
+        {1, 2}, {0, 1},
+        {1, 0}, {4, 1},
+        {1, 8}, {0, 1},
+    };
+
+    H hierarhies[3], h;
+
+    size_t crt_cnt = 3, alts_cnt = 2;
+    H alterns[crt_cnt * alts_cnt];
+
+    int i = 0, j = 0, res = -1;
+
+    double rating[2] = {0.0, 0.0};
+    double ctrl_res[2] = {0.569, 0.430};
+
+    /* fill criterias */
+    for (i = 0; (size_t) i < crt_cnt; i++) { 
+        h = new_bsa_hierarhy(titles[i], crt_cnt);
+
+        hierarhies[i] = h;
+        grade = crt_grades[i];
+
+        for (j = 0; (size_t) j < crt_cnt; j++) {
+            res = add_new_hierarhy_value(h, grade[j]);
+            ASSERT_EQ_INT32(res, 0, "criteria added", LINE());
+        }
+    }
+
+    /* fill alternatives */
+    for (i = 0; (size_t) i < (crt_cnt * alts_cnt); i++) {
+        h = new_bsa_hierarhy("_", alts_cnt);
+        for (j = 0; (size_t) j < alts_cnt; j++) {
+            res = add_new_hierarhy_value(h, alts_grades[i][j]);
+            ASSERT_EQ_INT32(res, 0, "alternative added", LINE());
+        }
+        alterns[i] = h;
+    }
+
+    res = compute_rating(alterns, hierarhies, crt_cnt, alts_cnt, rating);
+    ASSERT_EQ_INT32(res, 0, "rating calculated", LINE());
+
+    for (i = 0; (size_t) i < alts_cnt; i++) {
+        EXPECT_EQ_DBL(rating[i], ctrl_res[i], DBL_e_3, "calc_control", LINE());
+    }
+
+    for (i = 0; (size_t) i < alts_cnt; i++) {
+        free_bsa_hierarhy(hierarhies[i]);
+    }
+
+    for (i = 0; (size_t) i < (crt_cnt * alts_cnt); i++) {
+        free_bsa_hierarhy(alterns[i]);
+    }
+}
+
 int main() {
     test_build_hierarhies();
     test_calc_weights_from_hierarhies();
     test_calc_rating();
     test_calc_rating_assymmetric();
+    test_compute_rating_has_same_res_as_3c3a();
+    test_compute_rating_has_same_res_as_3c2a();
     return 0;
 }
 

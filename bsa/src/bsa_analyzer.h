@@ -27,15 +27,17 @@ extern "C" {
 
 typedef struct hierarhy *H;
 
-typedef struct assessment *assessment_t;
-
 typedef struct bsa_rating *bsa_rating_t;
+
+typedef struct alternative *A;
 
 H new_bsa_hierarhy(char *title, size_t members);
 
 int add_new_hierarhy_value(H h, int value);
 
 void free_bsa_hierarhy(H h);
+
+int compute_rating(H alts[], H crts[], size_t crt_cnt, size_t alts_cnt, double rating[]);
 
 #ifdef __cplusplus
 }

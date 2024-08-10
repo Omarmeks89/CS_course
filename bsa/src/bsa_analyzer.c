@@ -18,62 +18,6 @@ struct _bsa_weight {
 
 typedef struct _bsa_weight *W;
 
-struct alternative {
-    H *alternatives;
-    size_t pos;
-    size_t limit;
-};
-
-struct alternative *
-new_alternatives(size_t alts_cnt) {
-    struct alternative *a;
-    if (alts_cnt > MAX_POSSIBLE_MEMBERS)
-        return NULL;
-
-    a = (struct alternative *) malloc(sizeof(*a));
-    if (a == NULL)
-        return NULL;
-
-    a->alternatives = (H *) calloc(alts_cnt, sizeof(struct hierarhy));
-    if (a->alternatives == NULL)
-        return NULL;
-
-    a->pos= 0;
-    a->limit = alts_cnt;
-
-    return a;
-}
-
-int add_new_alternative(struct alternative *a, H h) {
-    if (h == NULL)
-        return EFAULT;
-
-    if (a->limit == h->pos)
-        return -3;
-
-    a->alternatives[a->pos] = h;
-    a->pos++;
-
-    return 0;
-}
-
-H
-get_alternative(struct alternative *a, size_t pos) {
-    if ((a == NULL) || (a->alternatives == NULL))
-        return NULL;
-
-    if (pos > a->limit)
-        return NULL;
-
-    return a->alternatives[pos * sizeof(struct hierarhy)];
-}
-
-void free_alternatives(struct alternative *a) {
-    if (a->alternatives != NULL)
-        free(a->alternatives);
-    free(a);
-}
-
 H new_bsa_hierarhy(char *title, size_t members) {
     H h;
 

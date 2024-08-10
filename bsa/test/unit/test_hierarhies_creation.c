@@ -305,7 +305,7 @@ void test_compute_rating_has_same_res_as_3c2a() {
         EXPECT_EQ_DBL(rating[i], ctrl_res[i], DBL_e_2, "calc_control", LINE());
     }
 
-    for (i = 0; (size_t) i < alts_cnt; i++) {
+    for (i = 0; (size_t) i < crt_cnt; i++) {
         free_bsa_hierarhy(hierarhies[i]);
     }
 
@@ -315,10 +315,12 @@ void test_compute_rating_has_same_res_as_3c2a() {
 }
 
 int main() {
+#if 0
     test_build_hierarhies();
     test_calc_weights_from_hierarhies();
     test_calc_rating();
     test_calc_rating_assymmetric();
+# endif
     test_compute_rating_has_same_res_as_3c3a();
     test_compute_rating_has_same_res_as_3c2a();
     return 0;

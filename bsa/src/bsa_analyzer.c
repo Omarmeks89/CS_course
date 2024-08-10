@@ -223,7 +223,7 @@ int compute_rating(H alts[], H crts[], size_t crt_cnt, size_t alts_cnt, double r
             break;
     }
 
-    for (i = 0; (size_t) i < alts_cnt; i++) {
+    for (i = 0; (size_t) i < crt_cnt; i++) {
         free_weight(alts_weights[i]);
     }
 

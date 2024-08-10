@@ -173,7 +173,6 @@ make_rating(double hr_weight, W a, double rating[]) {
         return EFAULT;
 
     for (i = 0; (size_t) i < a->w_cnt; i++) {
-        printf("cr_wght = %lf, alt_weight = %lf\n", hr_weight, a->weights[i]);
         rating[i] += a->weights[i] * hr_weight;
     }
 
@@ -275,7 +274,6 @@ int compute_rating(H alts[], H crts[], size_t crt_cnt, size_t alts_cnt, double r
     }
 
     for (i = 0; (size_t) i < crt_cnt; i++) {
-        printf("ctrl_weight = %lf\n", crt_weights->weights[i]);
         res = make_rating(crt_weights->weights[i], alts_weights[i], rating);
         if (res != 0)
             break;

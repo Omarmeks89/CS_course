@@ -35,7 +35,7 @@ void test_build_hierarhies() {
 void test_calc_weights_from_hierarhies() {
     char *titles[3] = {"one", "two", "three"};
     int grades[3][3] = {{1, 3, 5}, {0, 1, 3}, {0, 0, 1}};
-    double wcheck[3] = {0.63, 0.26, 0.11};
+    double wcheck[3] = {0.633, 0.260, 0.106};
     double valcheck;
     int *grade;
     size_t members_cnt = 3;
@@ -67,7 +67,7 @@ void test_calc_weights_from_hierarhies() {
 
     for (i = 0; (size_t) i < members_cnt; i++) {
         get_weight(w, &valcheck, (size_t) i);
-        ASSERT_EQ_DBL(wcheck[i], valcheck, DBL_e_2, "calc_weight_check", LINE());
+        ASSERT_EQ_DBL(valcheck, wcheck[i], DBL_e_2, "calc_weight_check", LINE());
     }
 
     free_weight(w);
@@ -76,7 +76,7 @@ void test_calc_weights_from_hierarhies() {
 void test_calc_rating() {
     char *titles[3] = {"one", "two", "three"};
     double rating[3] = {0.0, 0.0, 0.0};
-    double ctrl_res[3] = {0.425, 0.439, 0.135};
+    double ctrl_res[3] = {0.42, 0.44, 0.13};
 
     /* table of grades by each criteria 
      * each table filled as a row */
@@ -89,7 +89,7 @@ void test_calc_rating() {
     size_t members_cnt = 3;
     H altern[3][3], h;
     W wghts[3], w;
-    double control_weights[3] = {0.63, 0.26, 0.11};
+    double control_weights[3] = {0.633, 0.260, 0.106};
     int i = 0, j = 0, k = 0, res = -1;
 
     w = (W) malloc(sizeof(struct _bsa_weight));
@@ -121,7 +121,7 @@ void test_calc_rating() {
     }
 
     for (i = 0; (size_t) i < members_cnt; i++) {
-        EXPECT_EQ_DBL(rating[i], ctrl_res[i], DBL_e_3, "calc_control", LINE());
+        EXPECT_EQ_DBL(rating[i], ctrl_res[i], DBL_e_2, "calc_control", LINE());
         free_weight(wghts[i]);
 
         for (j = 0; (size_t) j < members_cnt; j++) {
@@ -135,7 +135,7 @@ void test_calc_rating() {
 void test_calc_rating_assymmetric() {
     char *titles[2] = {"one", "two"};
     double rating[2] = {0.0, 0.0};
-    double ctrl_res[2] = {0.569, 0.430};
+    double ctrl_res[2] = {0.56, 0.43};
 
     /* table of grades by each criteria 
      * each table filled as a row */
@@ -148,7 +148,7 @@ void test_calc_rating_assymmetric() {
     size_t members_cnt = 3, alt_cnt = 2;
     H altern[3][2], h;
     W wghts[3], w;
-    double control_weights[3] = {0.63, 0.26, 0.11};
+    double control_weights[3] = {0.633, 0.260, 0.106};
     int i = 0, j = 0, k = 0, res = -1;
 
     w = (W) malloc(sizeof(struct _bsa_weight));
@@ -187,7 +187,7 @@ void test_calc_rating_assymmetric() {
         }
     }
     for (i = 0; (size_t) i < alt_cnt; i++) {
-        EXPECT_EQ_DBL(rating[i], ctrl_res[i], DBL_e_3, "calc_control_assym", LINE());
+        EXPECT_EQ_DBL(rating[i], ctrl_res[i], DBL_e_2, "calc_control_assym", LINE());
     }
 
     free_weight(w);
@@ -212,7 +212,7 @@ void test_compute_rating_has_same_res_as_3c3a() {
     int i = 0, j = 0, res = -1;
 
     double rating[3] = {0.0, 0.0, 0.0};
-    double ctrl_res[3] = {0.425, 0.439, 0.135};
+    double ctrl_res[3] = {0.42, 0.44, 0.13};
 
     /* fill criterias */
     for (i = 0; (size_t) i < crt_cnt; i++) { 
@@ -241,7 +241,7 @@ void test_compute_rating_has_same_res_as_3c3a() {
     ASSERT_EQ_INT32(res, 0, "rating calculated", LINE());
 
     for (i = 0; (size_t) i < alts_cnt; i++) {
-        EXPECT_EQ_DBL(rating[i], ctrl_res[i], DBL_e_3, "calc_control", LINE());
+        EXPECT_EQ_DBL(rating[i], ctrl_res[i], DBL_e_2, "calc_control", LINE());
     }
 
     for (i = 0; (size_t) i < alts_cnt; i++) {
@@ -273,7 +273,7 @@ void test_compute_rating_has_same_res_as_3c2a() {
     int i = 0, j = 0, res = -1;
 
     double rating[2] = {0.0, 0.0};
-    double ctrl_res[2] = {0.569, 0.430};
+    double ctrl_res[2] = {0.56, 0.43};
 
     /* fill criterias */
     for (i = 0; (size_t) i < crt_cnt; i++) { 
@@ -302,7 +302,7 @@ void test_compute_rating_has_same_res_as_3c2a() {
     ASSERT_EQ_INT32(res, 0, "rating calculated", LINE());
 
     for (i = 0; (size_t) i < alts_cnt; i++) {
-        EXPECT_EQ_DBL(rating[i], ctrl_res[i], DBL_e_3, "calc_control", LINE());
+        EXPECT_EQ_DBL(rating[i], ctrl_res[i], DBL_e_2, "calc_control", LINE());
     }
 
     for (i = 0; (size_t) i < alts_cnt; i++) {

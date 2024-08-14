@@ -95,7 +95,7 @@ void free_bsa_hierarhy(H h) {
  * @param weights calculated weights count
  * @return pointer on _bsa_weights struct
  */
-W new_bsa_weight(size_t weights) {
+static W new_bsa_weight(size_t weights) {
     W w;
 
     if ((weights > MAX_POSSIBLE_MEMBERS) || (weights == 0))
@@ -122,7 +122,7 @@ W new_bsa_weight(size_t weights) {
  * @param pos wished weight position
  * @return status code
  */
-int get_weight(W w, double *weight, size_t pos) {
+static int get_weight(W w, double *weight, size_t pos) {
     if (pos > (w->w_cnt - 1))
         return EINVAL;
 
@@ -138,7 +138,7 @@ int get_weight(W w, double *weight, size_t pos) {
  * @param w pointer on _bsa_weight struct
  * @return no return
  */
-void free_weight(W w) {
+static void free_weight(W w) {
     if (w != NULL) {
         if (w->weights != NULL)
             free(w->weights);
@@ -154,7 +154,7 @@ void free_weight(W w) {
  * So we have N alternatives and rating[N] and
  * M criterias, and we have alternatives weights by
  * each criteria. */
-int
+static int
 make_rating(double hr_weight, W a, double rating[]) {
     int i;
 
@@ -169,9 +169,14 @@ make_rating(double hr_weight, W a, double rating[]) {
 }
 
 
-/* will compute weight from hierarhies[] and 
- * set to Weight type. */
-int
+/** \fn compute_bsa_weights will compute hierarhies weights
+ * and store into _bsa_weight for next calculations.
+ * @param hierarhies array of hierarhies to calculate
+ * @param h_count size of hierarhies array
+ * @param w pointer on _bsa_weight
+ * @return status code
+ */
+static int
 compute_bsa_weights(H hierarhies[], size_t h_count, W w) {
     double col_sum[h_count], tmp;
     int i, j;
@@ -208,10 +213,25 @@ compute_bsa_weights(H hierarhies[], size_t h_count, W w) {
     return 0;
 }
 
+/** \fn get_hierarhy return hierarhy from array
+ * @param hiers array of hierarhies
+ * @param alts_cnt alternatives (analyzed objects) count
+ * @param crt_idx index of current criteria
+ * @param altr_idx index of current alternative
+ * @return pointer on hierarhy struct
+ */
 static H get_hierarhy(H hiers[], size_t alts_cnt, size_t crt_idx, size_t altr_idx) {
     return hiers[crt_idx * alts_cnt + altr_idx];
 }
 
+/** \fn compute_rating is a top-level function of a lib.
+ * Calculate rating for wished alternatives using criterias.
+ * @param alts array of wished alternatives
+ * @param crts array of criterias for each alternative
+ * @param alts_cnt count of alternatives 
+ * @param reting array to store calculated rating values depend on alternative position
+ * @return status code
+ */
 int compute_rating(H alts[], H crts[], size_t crt_cnt, size_t alts_cnt, double rating[]) {
     W crt_weights = NULL;
     W alts_weights[alts_cnt];

@@ -23,11 +23,14 @@ extern "C" {
 
 #include <stdlib.h>
 
+/** \def MAX_POSSIBLE_MEMBERS is a limit for
+ * alternatives and hierarhies count
+ */
 #define MAX_POSSIBLE_MEMBERS 1024
 
+/** \typedef type for pointer on hierarhy struct
+ */
 typedef struct hierarhy *H;
-
-typedef struct bsa_rating *bsa_rating_t;
 
 H new_bsa_hierarhy(char *title, size_t members);
 

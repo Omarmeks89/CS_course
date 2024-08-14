@@ -146,14 +146,16 @@ static void free_weight(W w) {
     }
 }
 
-/* a -> [Da, Ca], rating -> [0.0, 0.0], h -> a
- * looks like: rating[i] += a[i] * a;
- * [Da, Ca] here means weghts alternative D & C
- * by criteria a.
- *
- * So we have N alternatives and rating[N] and
- * M criterias, and we have alternatives weights by
- * each criteria. */
+/** \fn make_rating make a convolution for
+ * calculate rating for each alternative.
+ * Each alternative value mul on one of
+ * criterias and puts into array onto
+ * alternative position in income request.
+ * @param hr_weight calculated hierarhy weight
+ * @param a weights of alternative
+ * @param rating array of double to store rating
+ * @return status code
+ */
 static int
 make_rating(double hr_weight, W a, double rating[]) {
     int i;

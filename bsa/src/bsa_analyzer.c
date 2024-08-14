@@ -4,20 +4,34 @@
 
 #include "bsa_analyzer.h"
 
+/** \struct hierarhy is a container type
+ * for collect values, that have hierarhy 
+ * relationships between each other.
+ */
 struct hierarhy {
     const char  *title;
-    size_t      limit;
-    size_t      pos;
+    size_t      limit;              /**< limit (max possible count) of hierarhies */
+    size_t      pos;                /**< position for put new hierarhy value */
     double      *values;
 };
 
 struct _bsa_weight {
-    size_t      w_cnt;
-    double      *weights;
+    size_t      w_cnt;              /**< possible weights count */
+    double      *weights;           /**< array of weights, size = w_cnt */
 };
 
+/**
+ * \struct _bsa_weight is used as a container for
+ * calculated weights from hierarhies 
+ */
 typedef struct _bsa_weight *W;
 
+/** \fn new_bsa_hierarhy create new hierarhy
+ * struct and return pointer on a struct.
+ * @param title a name of current hierarhy
+ * @param members possible count of hierarhy elements
+ * @return pointer on hierarhy struct
+ */
 H new_bsa_hierarhy(char *title, size_t members) {
     H h;
 
@@ -38,6 +52,15 @@ H new_bsa_hierarhy(char *title, size_t members) {
     return h;
 }
 
+/** \fn add_hierarhy_value add new value into 
+ * current hierarhy. If hierarhy pointer is NULL,
+ * will be returned EFAULT, if value is lower as zero,
+ * will be returned EINVAL. If hierarhy haven`t free space will be
+ * returned -3 ??
+ * @param h pointer on current hierarhy
+ * @param value hierarhy value (from 0 to 9)
+ * @return status code
+ */
 int add_new_hierarhy_value(H h, int value) {
     if (h == NULL)
         return EFAULT;
@@ -54,6 +77,12 @@ int add_new_hierarhy_value(H h, int value) {
     return 0;
 }
 
+/** \fn free_bsa_hierarhy release memory
+ * allocated for hierarhy struct and nested
+ * values array
+ * @param h pointer on hierarhy struct
+ * @return no return
+ */
 void free_bsa_hierarhy(H h) {
     if (h != NULL) {
         if (h->values != NULL)
@@ -62,6 +91,10 @@ void free_bsa_hierarhy(H h) {
     }
 }
 
+/** \fn new_bsa_weight create new _bsa_weight struct
+ * @param weights calculated weights count
+ * @return pointer on _bsa_weights struct
+ */
 W new_bsa_weight(size_t weights) {
     W w;
 
@@ -82,6 +115,13 @@ W new_bsa_weight(size_t weights) {
     return w;
 }
 
+/** \fn get_weight is used for receive weight value
+ * by position.
+ * @param w pointer on _bsa_weight struct
+ * @param weight pointer on a variable (double) to store weight
+ * @param pos wished weight position
+ * @return status code
+ */
 int get_weight(W w, double *weight, size_t pos) {
     if (pos > (w->w_cnt - 1))
         return EINVAL;
@@ -93,6 +133,11 @@ int get_weight(W w, double *weight, size_t pos) {
     return 0;
 }
 
+/** \fn free_weight release memory allocated
+ * for _bsa_weight struct and nested array
+ * @param w pointer on _bsa_weight struct
+ * @return no return
+ */
 void free_weight(W w) {
     if (w != NULL) {
         if (w->weights != NULL)

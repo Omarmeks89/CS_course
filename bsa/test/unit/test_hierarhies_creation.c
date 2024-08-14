@@ -315,12 +315,10 @@ void test_compute_rating_has_same_res_as_3c2a() {
 }
 
 int main() {
-#if 0
     test_build_hierarhies();
     test_calc_weights_from_hierarhies();
     test_calc_rating();
     test_calc_rating_assymmetric();
-# endif
     test_compute_rating_has_same_res_as_3c3a();
     test_compute_rating_has_same_res_as_3c2a();
     return 0;

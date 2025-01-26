@@ -68,7 +68,7 @@ int main(void)
 
         descr = get_ascii_description(cli_symb);
         if (descr == NULL)
-            exit(errno);
+            exit(1);
 
         printf(DESCRIPTION, cli_symb, cli_symb, descr);
     }
